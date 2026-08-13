@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Motion Lab</title>
+    <link rel="stylesheet" href="home.css" />
+  </head>
+  <body>
+    <header class="home-header">
+      <a class="home-brand" href="./index.html" aria-label="Motion Lab ホーム">
+        <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Motion Lab</span>
+      </a>
+      <span class="header-note">Browser animation tools</span>
+    </header>
+
+    <main class="home-main">
+      <div class="home-heading">
+        <p>TOOLS</p>
+        <h1>アニメーションツール</h1>
+        <span>素材を読み込み、動きを調整して、そのまま動画に書き出せます。</span>
+      </div>
+
+      <section class="tool-grid" aria-label="ツール一覧">
+        <a class="tool-card outline-card" href="./outline.html">
+          <div class="tool-preview outline-preview" aria-hidden="true">
+            <div class="preview-toolbar"><span></span><span></span><span></span></div>
+            <div class="outline-stage">
+              <div class="outline-shape"></div>
+              <span class="outline-origin"></span>
+            </div>
+            <div class="preview-timeline"><i></i></div>
+          </div>
+          <div class="tool-copy">
+            <span class="tool-number">01</span>
+            <div>
+              <h2>Outline Motion</h2>
+              <p>透過画像の最大要素から輪郭を抽出し、始点と描画範囲を動かします。</p>
+            </div>
+            <span class="launch-mark" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <a class="tool-card dial-card" href="./text-dial.html">
+          <div class="tool-preview dial-preview" aria-hidden="true">
+            <div class="preview-toolbar"><span></span><span></span><span></span></div>
+            <div class="dial-stage">
+              <div class="mini-dial"><span>に</span><strong>な</strong><span>ど</span></div>
+              <div class="mini-dial"><span>ぎ</span><strong>が</strong><span>か</span></div>
+              <div class="mini-dial"><span>す</span><strong>し</strong><span>さ</span></div>
+              <div class="mini-dial"><span>せ</span><strong>そ</strong><span>そ</span></div>
+              <div class="mini-dial"><span>え</span><strong>う</strong><span>い</span></div>
+            </div>
+            <div class="preview-timeline dial-line"><i></i></div>
+          </div>
+          <div class="tool-copy">
+            <span class="tool-number">02</span>
+            <div>
+              <h2>Dial Type</h2>
+              <p>文字をダイヤル錠のように並べ、前後の文字から目的の文字へ戻します。</p>
+            </div>
+            <span class="launch-mark" aria-hidden="true">→</span>
+          </div>
+        </a>
+      </section>
+    </main>
+
+    <footer class="home-footer">
+      <span>LOCAL PROCESSING</span>
+      <span>1600 × 1000 / WEBM</span>
+    </footer>
+  </body>
+</html>

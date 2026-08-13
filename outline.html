@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Outline Motion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand-block" href="./index.html" aria-label="ホームへ戻る">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Outline Motion</h1>
+          <p>透過画像から輪郭アニメーションを作成</p>
+        </div>
+      </a>
+      <div class="header-actions">
+        <button id="sampleButton" class="button button-secondary" type="button">サンプル</button>
+        <label class="button button-primary" for="fileInput">
+          <span aria-hidden="true">↑</span>
+          画像を開く
+        </label>
+        <input id="fileInput" type="file" accept="image/png,image/webp,image/gif" hidden />
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="control-panel control-panel-left" aria-label="画像と輪郭の設定">
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>画像</h2>
+            <span id="imageDimensions" class="meta-value">--</span>
+          </div>
+          <div id="fileSummary" class="file-summary">
+            <div class="file-thumbnail" aria-hidden="true">
+              <span>PNG</span>
+            </div>
+            <div class="file-copy">
+              <strong id="fileName">画像を選択</strong>
+              <span id="fileMeta">PNG / WebP / GIF</span>
+            </div>
+          </div>
+          <div id="imageStatus" class="status-row" role="status">
+            <span class="status-dot"></span>
+            <span>サンプルを表示中</span>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>輪郭</h2>
+            <output id="pointCount" class="meta-value">--</output>
+          </div>
+
+          <label class="field-row" for="lineWidth">
+            <span>線の太さ</span>
+            <output id="lineWidthValue">8 px</output>
+          </label>
+          <input id="lineWidth" class="range" type="range" min="1" max="32" step="1" value="8" />
+
+          <div class="field-row color-row">
+            <label for="lineColor">線の色</label>
+            <div class="color-control">
+              <input id="lineColor" type="color" value="#14b89a" />
+              <output id="lineColorValue">#14B89A</output>
+            </div>
+          </div>
+
+          <label class="field-row" for="opacity">
+            <span>元画像</span>
+            <output id="opacityValue">15%</output>
+          </label>
+          <input id="opacity" class="range" type="range" min="0" max="100" step="1" value="15" />
+
+          <div class="field-row color-row">
+            <label for="backgroundColor">背景</label>
+            <div class="color-control">
+              <input id="backgroundColor" type="color" value="#101418" />
+              <output id="backgroundColorValue">#101418</output>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-section origin-section">
+          <div class="section-heading">
+            <h2>輪郭の始点</h2>
+            <output id="originValue" class="meta-value">0.0%</output>
+          </div>
+          <button id="originButton" class="button button-secondary button-wide" type="button" aria-pressed="false">
+            <span class="crosshair-icon" aria-hidden="true"></span>
+            始点を選択
+          </button>
+        </section>
+      </aside>
+
+      <section class="stage-panel" aria-label="アニメーションプレビュー">
+        <div class="stage-toolbar">
+          <div>
+            <strong>プレビュー</strong>
+            <span>16:10 · 1600 × 1000</span>
+          </div>
+          <button id="fitButton" class="icon-button" type="button" title="表示をリセット" aria-label="表示をリセット">⌖</button>
+        </div>
+
+        <div id="canvasShell" class="canvas-shell">
+          <canvas id="previewCanvas" width="1600" height="1000" aria-label="輪郭アニメーションのプレビュー"></canvas>
+          <div id="originHint" class="canvas-hint" hidden>輪郭上をクリック</div>
+        </div>
+
+        <div class="transport">
+          <button id="restartButton" class="icon-button transport-button" type="button" title="先頭に戻る" aria-label="先頭に戻る">↺</button>
+          <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
+          <div class="timeline-block">
+            <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
+            <div class="time-labels">
+              <output id="currentTime">0:00.0</output>
+              <output id="totalTime">0:04.0</output>
+            </div>
+          </div>
+          <label class="speed-control" for="previewSpeed">
+            <span>速度</span>
+            <select id="previewSpeed">
+              <option value="0.5">0.5×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <aside class="control-panel control-panel-right" aria-label="アニメーションと出力の設定">
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>描画範囲</h2>
+            <button id="swapRangeButton" class="text-button" type="button">入れ替え</button>
+          </div>
+
+          <div class="range-pair">
+            <div class="range-pair-title">
+              <span class="range-key range-key-tail"></span>
+              <strong>先頭</strong>
+            </div>
+            <label>
+              <span>開始</span>
+              <span class="number-field"><input id="tailFrom" type="number" min="-400" max="400" step="1" value="0" /><span>%</span></span>
+            </label>
+            <span class="pair-arrow" aria-hidden="true">→</span>
+            <label>
+              <span>終了</span>
+              <span class="number-field"><input id="tailTo" type="number" min="-400" max="400" step="1" value="0" /><span>%</span></span>
+            </label>
+          </div>
+
+          <div class="range-pair">
+            <div class="range-pair-title">
+              <span class="range-key range-key-head"></span>
+              <strong>末尾</strong>
+            </div>
+            <label>
+              <span>開始</span>
+              <span class="number-field"><input id="headFrom" type="number" min="-400" max="400" step="1" value="0" /><span>%</span></span>
+            </label>
+            <span class="pair-arrow" aria-hidden="true">→</span>
+            <label>
+              <span>終了</span>
+              <span class="number-field"><input id="headTo" type="number" min="-400" max="400" step="1" value="100" /><span>%</span></span>
+            </label>
+          </div>
+
+          <div class="preset-row" role="group" aria-label="描画範囲プリセット">
+            <button class="preset-button is-active" type="button" data-preset="draw">描く</button>
+            <button class="preset-button" type="button" data-preset="loop">周回</button>
+            <button class="preset-button" type="button" data-preset="expand">拡張</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>タイミング</h2>
+          </div>
+
+          <label class="field-row" for="duration">
+            <span>出力時間</span>
+            <output id="durationValue">4.0 秒</output>
+          </label>
+          <input id="duration" class="range" type="range" min="0.5" max="15" step="0.5" value="4" />
+
+          <div class="field-row select-row">
+            <label for="easing">動き</label>
+            <select id="easing">
+              <option value="linear">一定</option>
+              <option value="easeInOut" selected>なめらか</option>
+              <option value="easeIn">ゆっくり開始</option>
+              <option value="easeOut">ゆっくり停止</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="control-section export-section">
+          <div class="section-heading">
+            <h2>出力</h2>
+            <span class="format-badge">WebM</span>
+          </div>
+          <dl class="export-summary">
+            <div><dt>サイズ</dt><dd>1600 × 1000</dd></div>
+            <div><dt>比率</dt><dd>16:10</dd></div>
+            <div><dt>フレーム</dt><dd>60 fps</dd></div>
+          </dl>
+          <button id="exportButton" class="button button-export button-wide" type="button">
+            <span aria-hidden="true">↓</span>
+            動画を書き出す
+          </button>
+          <div id="exportProgress" class="export-progress" hidden>
+            <div id="exportProgressBar"></div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

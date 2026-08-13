@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Dial Type</title>
+    <link rel="stylesheet" href="text-dial.css" />
+  </head>
+  <body>
+    <header class="dial-header">
+      <a class="dial-brand" href="./index.html" aria-label="ホームへ戻る">
+        <span class="dial-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div>
+          <h1>Dial Type</h1>
+          <p>文字ダイヤルアニメーション</p>
+        </div>
+      </a>
+      <nav class="dial-nav" aria-label="ツール">
+        <a href="./outline.html">Outline Motion</a>
+        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
+      </nav>
+    </header>
+
+    <main class="dial-workspace">
+      <aside class="dial-controls" aria-label="文字ダイヤル設定">
+        <section class="control-section text-section">
+          <div class="section-heading">
+            <h2>文字列</h2>
+            <output id="characterCount">7 / 12</output>
+          </div>
+          <input id="textInput" class="text-input" type="text" value="ながしそうめん" maxlength="24" autocomplete="off" spellcheck="false" />
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>動かす文字</h2>
+            <button id="toggleAllButton" class="text-button" type="button">すべて固定</button>
+          </div>
+          <div id="characterOptions" class="character-options"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>初期位置</h2>
+          </div>
+          <div class="segmented-control" role="radiogroup" aria-label="初期位置">
+            <label><input type="radio" name="direction" value="before" /><span>1つ前</span></label>
+            <label><input type="radio" name="direction" value="alternate" checked /><span>前後</span></label>
+            <label><input type="radio" name="direction" value="after" /><span>1つ後</span></label>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>タイミング</h2>
+            <output id="totalDurationValue" class="meta-value">3.5 秒</output>
+          </div>
+
+          <label class="field-row" for="duration">
+            <span>戻る時間</span>
+            <output id="durationValue">2.6 秒</output>
+          </label>
+          <input id="duration" class="range" type="range" min="0.5" max="8" step="0.1" value="2.6" />
+
+          <label class="field-row" for="stagger">
+            <span>文字の時間差</span>
+            <output id="staggerValue">0.15 秒</output>
+          </label>
+          <input id="stagger" class="range" type="range" min="0" max="0.6" step="0.05" value="0.15" />
+
+          <div class="field-row select-row">
+            <label for="easing">動き</label>
+            <select id="easing">
+              <option value="linear">一定</option>
+              <option value="easeOut" selected>ゆっくり停止</option>
+              <option value="easeInOut">なめらか</option>
+              <option value="spring">少し弾む</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="control-section design-section">
+          <div class="section-heading">
+            <h2>デザイン</h2>
+          </div>
+          <div class="field-row select-row">
+            <label for="fontStyle">書体</label>
+            <select id="fontStyle">
+              <option value="sans" selected>ゴシック</option>
+              <option value="serif">明朝</option>
+              <option value="mono">等幅</option>
+            </select>
+          </div>
+          <div class="field-row color-row">
+            <label for="textColor">文字</label>
+            <span class="color-control"><input id="textColor" type="color" value="#182128" /><output>#182128</output></span>
+          </div>
+          <div class="field-row color-row">
+            <label for="dialColor">ダイヤル</label>
+            <span class="color-control"><input id="dialColor" type="color" value="#ffffff" /><output>#FFFFFF</output></span>
+          </div>
+          <div class="field-row color-row">
+            <label for="backgroundColor">背景</label>
+            <span class="color-control"><input id="backgroundColor" type="color" value="#e9edec" /><output>#E9EDEC</output></span>
+          </div>
+        </section>
+
+        <section class="control-section export-section">
+          <dl class="output-summary">
+            <div><dt>出力</dt><dd>1600 × 1000</dd></div>
+            <div><dt>形式</dt><dd>WebM · 60 fps</dd></div>
+          </dl>
+          <button id="exportButton" class="button button-export" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button>
+          <div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
+        </section>
+      </aside>
+
+      <section class="dial-stage-panel" aria-label="文字ダイヤルプレビュー">
+        <div class="stage-toolbar">
+          <div>
+            <strong>プレビュー</strong>
+            <span>16:10 · 1600 × 1000</span>
+          </div>
+          <span id="stageStatus" class="stage-status">7文字 · 前後</span>
+        </div>
+
+        <div class="canvas-shell">
+          <canvas id="dialCanvas" width="1600" height="1000" aria-label="文字ダイヤルアニメーションのプレビュー"></canvas>
+        </div>
+
+        <div class="transport">
+          <button id="restartButton" class="icon-button" type="button" title="先頭に戻る" aria-label="先頭に戻る">↺</button>
+          <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
+          <div class="timeline-block">
+            <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
+            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:03.5</output></div>
+          </div>
+          <label class="speed-control" for="previewSpeed"><span>速度</span>
+            <select id="previewSpeed">
+              <option value="0.5">0.5×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="text-dial.js"></script>
+  </body>
+</html>
