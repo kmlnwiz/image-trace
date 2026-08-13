@@ -4,6 +4,7 @@ const OUTPUT_WIDTH = 1600;
 const OUTPUT_HEIGHT = 1000;
 const PROCESS_LIMIT = 760;
 const ALPHA_THRESHOLD = 12;
+const OUTLINE_SETTINGS_KEY = "motion-lab:outline-settings:v1";
 
 const elements = {
   canvas: document.querySelector("#previewCanvas"),
@@ -43,6 +44,9 @@ const elements = {
   duration: document.querySelector("#duration"),
   durationValue: document.querySelector("#durationValue"),
   easing: document.querySelector("#easing"),
+  imageTime: document.querySelector("#imageTime"),
+  imageTimeValue: document.querySelector("#imageTimeValue"),
+  imageExportButton: document.querySelector("#imageExportButton"),
   exportButton: document.querySelector("#exportButton"),
   exportProgress: document.querySelector("#exportProgress"),
   exportProgressBar: document.querySelector("#exportProgressBar"),
@@ -71,6 +75,66 @@ const state = {
   toastTimer: 0,
   isExporting: false,
 };
+
+function saveOutlineSettings() {
+  const activePreset = elements.presetButtons.find((button) => button.classList.contains("is-active"));
+  MotionStorage.write(OUTLINE_SETTINGS_KEY, {
+    lineWidth: elements.lineWidth.value,
+    lineColor: elements.lineColor.value,
+    opacity: elements.opacity.value,
+    backgroundColor: elements.backgroundColor.value,
+    tailFrom: elements.tailFrom.value,
+    tailTo: elements.tailTo.value,
+    headFrom: elements.headFrom.value,
+    headTo: elements.headTo.value,
+    duration: elements.duration.value,
+    easing: elements.easing.value,
+    previewSpeed: elements.previewSpeed.value,
+    imageTime: elements.imageTime.value,
+    preset: activePreset?.dataset.preset || null,
+  });
+}
+
+function restoreOutlineSettings() {
+  const settings = MotionStorage.read(OUTLINE_SETTINGS_KEY);
+  if (!settings || typeof settings !== "object") return;
+
+  const controls = {
+    lineWidth: elements.lineWidth,
+    lineColor: elements.lineColor,
+    opacity: elements.opacity,
+    backgroundColor: elements.backgroundColor,
+    tailFrom: elements.tailFrom,
+    tailTo: elements.tailTo,
+    headFrom: elements.headFrom,
+    headTo: elements.headTo,
+    duration: elements.duration,
+    easing: elements.easing,
+    previewSpeed: elements.previewSpeed,
+  };
+  Object.entries(controls).forEach(([name, control]) => MotionStorage.restoreControl(control, settings[name]));
+  syncOutlineImageTime();
+  MotionStorage.restoreControl(elements.imageTime, settings.imageTime);
+
+  const presetNames = new Set(elements.presetButtons.map((button) => button.dataset.preset));
+  elements.presetButtons.forEach((button) => {
+    button.classList.toggle("is-active", presetNames.has(settings.preset) && button.dataset.preset === settings.preset);
+  });
+  elements.lineWidthValue.value = `${elements.lineWidth.value} px`;
+  elements.lineColorValue.value = elements.lineColor.value.toUpperCase();
+  elements.opacityValue.value = `${elements.opacity.value}%`;
+  elements.backgroundColorValue.value = elements.backgroundColor.value.toUpperCase();
+  elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
+  syncOutlineImageTime();
+  updateTimelineUI();
+}
+
+function syncOutlineImageTime() {
+  const duration = Number(elements.duration.value);
+  elements.imageTime.max = String(duration);
+  elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, duration));
+  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -130,153 +194,6 @@ function setStatus(message, isWarning = false) {
   elements.imageStatus.classList.toggle("is-warning", isWarning);
 }
 
-function polygonArea(points) {
-  let sum = 0;
-  for (let index = 0; index < points.length; index += 1) {
-    const next = points[(index + 1) % points.length];
-    sum += points[index].x * next.y - next.x * points[index].y;
-  }
-  return sum / 2;
-}
-
-function chaikin(points, passes = 2) {
-  let current = points;
-  for (let pass = 0; pass < passes; pass += 1) {
-    const next = [];
-    for (let index = 0; index < current.length; index += 1) {
-      const a = current[index];
-      const b = current[(index + 1) % current.length];
-      next.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
-      next.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
-    }
-    current = next;
-  }
-  return current;
-}
-
-function simplifyClosedContour(points) {
-  if (points.length <= 1200) return points;
-  const step = Math.ceil(points.length / 1200);
-  return points.filter((_, index) => index % step === 0);
-}
-
-function findLargestComponent(mask, width, height) {
-  const visited = new Uint8Array(mask.length);
-  let largest = [];
-  const queue = new Int32Array(mask.length);
-
-  for (let start = 0; start < mask.length; start += 1) {
-    if (!mask[start] || visited[start]) continue;
-
-    let read = 0;
-    let write = 0;
-    const component = [];
-    queue[write++] = start;
-    visited[start] = 1;
-
-    while (read < write) {
-      const index = queue[read++];
-      component.push(index);
-      const x = index % width;
-      const y = Math.floor(index / width);
-
-      if (x > 0) enqueue(index - 1);
-      if (x + 1 < width) enqueue(index + 1);
-      if (y > 0) enqueue(index - width);
-      if (y + 1 < height) enqueue(index + width);
-    }
-
-    if (component.length > largest.length) largest = component;
-
-    function enqueue(index) {
-      if (mask[index] && !visited[index]) {
-        visited[index] = 1;
-        queue[write++] = index;
-      }
-    }
-  }
-
-  return largest;
-}
-
-function buildOuterContour(component, width, height) {
-  const componentMask = new Uint8Array(width * height);
-  component.forEach((index) => {
-    componentMask[index] = 1;
-  });
-
-  const edges = [];
-  const addEdge = (x1, y1, x2, y2) => edges.push({ x1, y1, x2, y2, used: false });
-  const isFilled = (x, y) => x >= 0 && x < width && y >= 0 && y < height && componentMask[y * width + x];
-
-  component.forEach((index) => {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    if (!isFilled(x, y - 1)) addEdge(x, y, x + 1, y);
-    if (!isFilled(x + 1, y)) addEdge(x + 1, y, x + 1, y + 1);
-    if (!isFilled(x, y + 1)) addEdge(x + 1, y + 1, x, y + 1);
-    if (!isFilled(x - 1, y)) addEdge(x, y + 1, x, y);
-  });
-
-  const byStart = new Map();
-  edges.forEach((edge, index) => {
-    const key = `${edge.x1},${edge.y1}`;
-    const group = byStart.get(key) || [];
-    group.push(index);
-    byStart.set(key, group);
-  });
-
-  const loops = [];
-  edges.forEach((edge, edgeIndex) => {
-    if (edge.used) return;
-    const loop = [];
-    let currentIndex = edgeIndex;
-    let guard = 0;
-
-    while (guard < edges.length + 1) {
-      const current = edges[currentIndex];
-      if (current.used) break;
-      current.used = true;
-      loop.push({ x: current.x1, y: current.y1 });
-
-      const nextKey = `${current.x2},${current.y2}`;
-      const candidates = (byStart.get(nextKey) || []).filter((index) => !edges[index].used);
-      if (!candidates.length) break;
-
-      currentIndex = chooseBoundaryEdge(current, candidates.map((index) => ({ index, edge: edges[index] })));
-      guard += 1;
-    }
-
-    if (loop.length >= 4) loops.push(loop);
-  });
-
-  loops.sort((a, b) => Math.abs(polygonArea(b)) - Math.abs(polygonArea(a)));
-  return loops[0] || [];
-}
-
-function chooseBoundaryEdge(previous, candidates) {
-  if (candidates.length === 1) return candidates[0].index;
-  const previousAngle = Math.atan2(previous.y2 - previous.y1, previous.x2 - previous.x1);
-  candidates.sort((a, b) => turnScore(previousAngle, a.edge) - turnScore(previousAngle, b.edge));
-  return candidates[0].index;
-}
-
-function turnScore(previousAngle, edge) {
-  const angle = Math.atan2(edge.y2 - edge.y1, edge.x2 - edge.x1);
-  return (angle - previousAngle + Math.PI * 2) % (Math.PI * 2);
-}
-
-function calculateBounds(points) {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  return {
-    minX: Math.min(...xs),
-    minY: Math.min(...ys),
-    maxX: Math.max(...xs),
-    maxY: Math.max(...ys),
-  };
-}
-
 function rebuildContourMetrics() {
   state.cumulative = [0];
   let total = 0;
@@ -287,7 +204,7 @@ function rebuildContourMetrics() {
     state.cumulative.push(total);
   }
   state.totalLength = total;
-  state.bounds = calculateBounds(state.contour);
+  state.bounds = OutlineTrace.bounds(state.contour);
   state.transform = calculateTransform();
   elements.pointCount.value = `${state.contour.length.toLocaleString("ja-JP")} 点`;
 }
@@ -325,10 +242,10 @@ async function processImage(image, fileName, fileBytes = 0) {
     if (alpha < 250) transparentPixels += 1;
   }
 
-  const component = findLargestComponent(mask, width, height);
+  const component = OutlineTrace.findLargestComponent(mask, width, height);
   if (!component.length) throw new Error("不透明な要素を検出できませんでした");
 
-  const rawContour = buildOuterContour(component, width, height);
+  const rawContour = OutlineTrace.buildOuterContour(component, width, height);
   if (rawContour.length < 4) throw new Error("輪郭を作成できませんでした");
 
   state.image = image;
@@ -336,7 +253,7 @@ async function processImage(image, fileName, fileBytes = 0) {
   state.imageBytes = fileBytes;
   state.processWidth = width;
   state.processHeight = height;
-  state.contour = chaikin(simplifyClosedContour(rawContour), 2);
+  state.contour = OutlineTrace.smooth(OutlineTrace.simplify(rawContour), 2);
   state.playhead = 0;
   rebuildContourMetrics();
   updateImageUI(transparentPixels > 0);
@@ -565,6 +482,7 @@ function applyPreset(name) {
   elements.presetButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.preset === name));
   state.playhead = 0;
   stopPlayback();
+  saveOutlineSettings();
 }
 
 function clearPresetSelection() {
@@ -696,6 +614,30 @@ async function exportVideo() {
   showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
 }
 
+function exportImage() {
+  if (!state.contour.length) return;
+  stopPlayback(false);
+  const duration = Number(elements.duration.value);
+  state.playhead = duration ? Number(elements.imageTime.value) / duration : 0;
+  state.playhead = clamp(state.playhead, 0, 1);
+  render(state.playhead);
+  updateTimelineUI();
+  elements.canvas.toBlob((blob) => {
+    if (!blob) {
+      showToast("PNGを作成できませんでした");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const baseName = state.imageName.replace(/\.[^.]+$/, "") || "outline";
+    anchor.href = url;
+    anchor.download = `${baseName}-outline-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
+  }, "image/png");
+}
+
 elements.fileInput.addEventListener("change", () => {
   const [file] = elements.fileInput.files;
   loadFile(file);
@@ -737,6 +679,7 @@ elements.presetButtons.forEach((button) => {
 [elements.tailFrom, elements.tailTo, elements.headFrom, elements.headTo].forEach((input) => {
   input.addEventListener("input", () => {
     clearPresetSelection();
+    saveOutlineSettings();
     render();
   });
 });
@@ -745,42 +688,59 @@ elements.swapRangeButton.addEventListener("click", () => {
   [elements.tailFrom.value, elements.headFrom.value] = [elements.headFrom.value, elements.tailFrom.value];
   [elements.tailTo.value, elements.headTo.value] = [elements.headTo.value, elements.tailTo.value];
   clearPresetSelection();
+  saveOutlineSettings();
   render();
 });
 
 elements.lineWidth.addEventListener("input", () => {
   elements.lineWidthValue.value = `${elements.lineWidth.value} px`;
+  saveOutlineSettings();
   render();
 });
 
 elements.lineColor.addEventListener("input", () => {
   elements.lineColorValue.value = elements.lineColor.value.toUpperCase();
+  saveOutlineSettings();
   render();
 });
 
 elements.opacity.addEventListener("input", () => {
   elements.opacityValue.value = `${elements.opacity.value}%`;
+  saveOutlineSettings();
   render();
 });
 
 elements.backgroundColor.addEventListener("input", () => {
   elements.backgroundColorValue.value = elements.backgroundColor.value.toUpperCase();
+  saveOutlineSettings();
   render();
 });
 
 elements.duration.addEventListener("input", () => {
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
+  syncOutlineImageTime();
+  saveOutlineSettings();
   updateTimelineUI();
 });
 
-elements.easing.addEventListener("change", render);
+elements.imageTime.addEventListener("input", () => {
+  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  saveOutlineSettings();
+});
+
+elements.easing.addEventListener("change", () => {
+  saveOutlineSettings();
+  render();
+});
 elements.previewSpeed.addEventListener("change", () => {
+  saveOutlineSettings();
   if (state.isPlaying) {
     stopPlayback();
     startPlayback();
   }
 });
 elements.exportButton.addEventListener("click", exportVideo);
+elements.imageExportButton.addEventListener("click", exportImage);
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) {
@@ -793,6 +753,7 @@ window.addEventListener("keydown", (event) => {
 
 (async function init() {
   try {
+    restoreOutlineSettings();
     const image = await makeSampleImage();
     await processImage(image, "sample-shape.png");
   } catch (error) {

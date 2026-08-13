@@ -187,7 +187,7 @@
             <span>出力時間</span>
             <output id="durationValue">4.0 秒</output>
           </label>
-          <input id="duration" class="range" type="range" min="0.5" max="15" step="0.5" value="4" />
+          <input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="4" />
 
           <div class="field-row select-row">
             <label for="easing">動き</label>
@@ -203,13 +203,22 @@
         <section class="control-section export-section">
           <div class="section-heading">
             <h2>出力</h2>
-            <span class="format-badge">WebM</span>
+            <span class="format-badge">WebM / PNG</span>
           </div>
           <dl class="export-summary">
             <div><dt>サイズ</dt><dd>1600 × 1000</dd></div>
             <div><dt>比率</dt><dd>16:10</dd></div>
             <div><dt>フレーム</dt><dd>60 fps</dd></div>
           </dl>
+          <label class="field-row" for="imageTime">
+            <span>画像の時刻</span>
+            <output id="imageTimeValue">2.0 秒</output>
+          </label>
+          <input id="imageTime" class="range" type="range" min="0" max="4" step="0.1" value="2" />
+          <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button">
+            <span aria-hidden="true">▣</span>
+            PNGを書き出す
+          </button>
           <button id="exportButton" class="button button-export button-wide" type="button">
             <span aria-hidden="true">↓</span>
             動画を書き出す
@@ -223,6 +232,8 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+    <script src="motion-storage.js"></script>
+    <script src="outline-trace.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

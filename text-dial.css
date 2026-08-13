@@ -314,6 +314,18 @@ a:focus-visible {
   accent-color: var(--accent);
 }
 
+.compact-field {
+  margin-top: 12px;
+}
+
+.range-last {
+  margin-bottom: 0;
+}
+
+.order-row {
+  margin-bottom: 8px;
+}
+
 select {
   height: 34px;
   min-width: 112px;
@@ -393,6 +405,44 @@ input[type="color"] {
   color: white;
   border-color: var(--accent);
   background: var(--accent);
+}
+
+.button-secondary {
+  color: var(--ink);
+  border-color: var(--line);
+  background: white;
+}
+
+.button-secondary:hover {
+  border-color: #a9b4ba;
+  background: #f8fafb;
+}
+
+.export-image-button {
+  margin-bottom: 8px;
+}
+
+.local-font-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  margin: 10px 0 2px;
+}
+
+.local-font-row .button {
+  min-height: 34px;
+  padding-inline: 7px;
+  font-size: 10px;
+}
+
+.local-font-row > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .button-export:hover {

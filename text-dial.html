@@ -46,9 +46,19 @@
           </div>
           <div class="segmented-control" role="radiogroup" aria-label="初期位置">
             <label><input type="radio" name="direction" value="before" /><span>1つ前</span></label>
-            <label><input type="radio" name="direction" value="alternate" checked /><span>前後</span></label>
+            <label id="alternateDirectionLabel"><input type="radio" name="direction" value="alternate" checked /><span>前後</span></label>
             <label><input type="radio" name="direction" value="after" /><span>1つ後</span></label>
           </div>
+          <label class="field-row compact-field" for="shiftAmount">
+            <span>ずれ数</span>
+            <output id="shiftAmountValue">1 文字</output>
+          </label>
+          <input id="shiftAmount" class="range" type="range" min="1" max="3" step="1" value="1" />
+          <label class="field-row" for="visibleNeighbors">
+            <span>表示ズレ数</span>
+            <output id="visibleNeighborsValue">1 文字</output>
+          </label>
+          <input id="visibleNeighbors" class="range range-last" type="range" min="1" max="3" step="1" value="1" />
         </section>
 
         <section class="control-section">
@@ -57,17 +67,27 @@
             <output id="totalDurationValue" class="meta-value">3.5 秒</output>
           </div>
 
+          <div class="field-row select-row order-row">
+            <label for="returnOrder">戻る順番</label>
+            <select id="returnOrder">
+              <option value="left" selected>左から</option>
+              <option value="right">右から</option>
+              <option value="together">同時</option>
+              <option value="random">ランダム</option>
+            </select>
+          </div>
+
           <label class="field-row" for="duration">
             <span>戻る時間</span>
             <output id="durationValue">2.6 秒</output>
           </label>
-          <input id="duration" class="range" type="range" min="0.5" max="8" step="0.1" value="2.6" />
+          <input id="duration" class="range" type="range" min="0.5" max="90" step="0.1" value="2.6" />
 
           <label class="field-row" for="stagger">
             <span>文字の時間差</span>
             <output id="staggerValue">0.15 秒</output>
           </label>
-          <input id="stagger" class="range" type="range" min="0" max="0.6" step="0.05" value="0.15" />
+          <input id="stagger" class="range" type="range" min="0" max="5" step="0.05" value="0.15" />
 
           <div class="field-row select-row">
             <label for="easing">動き</label>
@@ -92,6 +112,11 @@
               <option value="mono">等幅</option>
             </select>
           </div>
+          <div class="local-font-row">
+            <label class="button button-secondary" for="fontFile">フォントを選択</label>
+            <input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden />
+            <span id="fontFileName">端末内のフォント</span>
+          </div>
           <div class="field-row color-row">
             <label for="textColor">文字</label>
             <span class="color-control"><input id="textColor" type="color" value="#182128" /><output>#182128</output></span>
@@ -109,8 +134,14 @@
         <section class="control-section export-section">
           <dl class="output-summary">
             <div><dt>出力</dt><dd>1600 × 1000</dd></div>
-            <div><dt>形式</dt><dd>WebM · 60 fps</dd></div>
+            <div><dt>形式</dt><dd>WebM / PNG</dd></div>
           </dl>
+          <label class="field-row" for="imageTime">
+            <span>画像の時刻</span>
+            <output id="imageTimeValue">1.8 秒</output>
+          </label>
+          <input id="imageTime" class="range" type="range" min="0" max="3.5" step="0.1" value="1.8" />
+          <button id="imageExportButton" class="button button-secondary export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>
           <button id="exportButton" class="button button-export" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button>
           <div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
         </section>
@@ -150,6 +181,7 @@
     </main>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
     <script src="text-dial.js"></script>
   </body>
 </html>

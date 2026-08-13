@@ -670,6 +670,10 @@ select {
   background: var(--accent);
 }
 
+.export-image-button {
+  margin-bottom: 8px;
+}
+
 .button-export:hover {
   background: #076f63;
 }
