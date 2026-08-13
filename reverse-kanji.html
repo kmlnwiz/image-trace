@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Reverse Kanji</title>
+    <link rel="stylesheet" href="reverse-kanji.css" />
+  </head>
+  <body>
+    <header class="kanji-header">
+      <a class="kanji-brand" href="./index.html" aria-label="ホームへ戻る">
+        <span class="kanji-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div>
+          <h1>Reverse Kanji</h1>
+          <p>逆書きアニメーション</p>
+        </div>
+      </a>
+      <nav class="kanji-nav" aria-label="ツール">
+        <a href="./outline.html">Outline Motion</a>
+        <a href="./text-dial.html">Dial Type</a>
+        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
+      </nav>
+    </header>
+
+    <main class="kanji-workspace">
+      <aside class="kanji-controls" aria-label="逆書き設定">
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>漢字</h2>
+            <output>1文字</output>
+          </div>
+          <input id="characterInput" class="character-input" type="text" value="逆" maxlength="2" autocomplete="off" spellcheck="false" aria-describedby="characterHint" />
+          <p id="characterHint" class="field-hint">日本式の書き順データがある漢字に対応します。</p>
+          <div id="dataStatus" class="data-status" role="status" aria-live="polite">
+            <span class="status-dot"></span>
+            <span>書き順を読み込み中</span>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>逆書き</h2>
+            <output id="strokeCount">— 画</output>
+          </div>
+          <div class="direction-summary" aria-label="描画方向">
+            <div><span>画の順序</span><strong>最後 → 最初</strong></div>
+            <div><span>画の向き</span><strong>終点 → 始点</strong></div>
+          </div>
+          <label class="field-row compact-field" for="duration">
+            <span>全体の時間</span>
+            <output id="durationValue">4.0 秒</output>
+          </label>
+          <input id="duration" class="range" type="range" min="0.5" max="60" step="0.1" value="4" />
+          <label class="field-row" for="strokeInterval">
+            <span>画のインターバル</span>
+            <output id="strokeIntervalValue">0.08 秒</output>
+          </label>
+          <input id="strokeInterval" class="range" type="range" min="0" max="5" step="0.01" value="0.08" />
+          <div class="field-row select-row">
+            <label for="easing">筆の動き</label>
+            <select id="easing">
+              <option value="linear" selected>一定</option>
+              <option value="easeIn">ゆっくり開始</option>
+              <option value="easeOut">ゆっくり停止</option>
+              <option value="easeInOut">なめらか</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>見た目</h2>
+          </div>
+          <p class="dataset-note">画の輪郭と運筆は、日本語用の正方向アニメーションデータをそのまま使用します。</p>
+          <label class="field-row" for="guideOpacity">
+            <span>下書き</span>
+            <output id="guideOpacityValue">8%</output>
+          </label>
+          <input id="guideOpacity" class="range" type="range" min="0" max="40" step="1" value="8" />
+          <div class="field-row color-row">
+            <label for="inkColor">文字</label>
+            <span class="color-control"><input id="inkColor" type="color" value="#172128" /><output>#172128</output></span>
+          </div>
+          <div class="field-row color-row">
+            <label for="backgroundColor">背景</label>
+            <span class="color-control"><input id="backgroundColor" type="color" value="#f1f0eb" /><output>#F1F0EB</output></span>
+          </div>
+        </section>
+
+        <section class="control-section export-section">
+          <dl class="output-summary">
+            <div><dt>出力</dt><dd>1600 × 1000</dd></div>
+            <div><dt>形式</dt><dd>WebM / PNG</dd></div>
+          </dl>
+          <label class="field-row" for="imageTime">
+            <span>画像の時刻</span>
+            <output id="imageTimeValue">2.0 秒</output>
+          </label>
+          <input id="imageTime" class="range" type="range" min="0" max="4" step="0.1" value="2" />
+          <button id="imageExportButton" class="button button-secondary export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>
+          <button id="exportButton" class="button button-export" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button>
+          <div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
+          <p class="data-credit">画データ: <a href="https://github.com/chanind/hanzi-writer-data-jp" target="_blank" rel="noreferrer">Hanzi Writer Japanese Data</a><br />AnimCJK / Arphic Public License・LGPL</p>
+        </section>
+      </aside>
+
+      <section class="kanji-stage-panel" aria-label="逆書きプレビュー">
+        <div class="stage-toolbar">
+          <div>
+            <strong>プレビュー</strong>
+            <span>16:10 · 1600 × 1000</span>
+          </div>
+          <span id="stageStatus" class="stage-status">読み込み中</span>
+        </div>
+
+        <div class="canvas-shell">
+          <canvas id="kanjiCanvas" width="1600" height="1000" aria-label="漢字を逆から書くアニメーションのプレビュー"></canvas>
+          <div id="canvasMessage" class="canvas-message" hidden></div>
+        </div>
+
+        <div class="transport">
+          <button id="restartButton" class="icon-button" type="button" title="先頭に戻る" aria-label="先頭に戻る">↺</button>
+          <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
+          <div class="timeline-block">
+            <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
+            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:04.0</output></div>
+          </div>
+          <label class="speed-control" for="previewSpeed"><span>速度</span>
+            <select id="previewSpeed">
+              <option value="0.5">0.5×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
+    <script src="reverse-kanji.js"></script>
+  </body>
+</html>

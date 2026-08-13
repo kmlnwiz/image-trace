@@ -30,4 +30,14 @@ Dial Typeで選択したローカルフォントはブラウザ内のIndexedDB�
 - 最大90秒、1600 x 1000、60fps、WebM形式の動画出力
 - 指定時刻のフレームをPNG形式で出力
 
+## Reverse Kanji
+
+- 漢字1文字を、最後の画から最初の画へ逆順で描画
+- 各画も終点から始点へ逆向きに描画
+- Hanzi Writer Japanese Dataの画輪郭と運筆中心線を利用し、正方向アニメーションを逆転
+- 最大60秒の全体時間、画ごとのインターバル、イージング、下書き濃度、文字色、背景色の調整
+- 1600 x 1000、60fps、WebM形式の動画出力
+- 指定時刻のフレームをPNG形式で出力
+- 日本語用のHanzi Writer Japanese Data（AnimCJK / Arphic Public License・LGPL）を使用（取得後はブラウザ内にキャッシュ）
+
 書き出しには `HTMLCanvasElement.captureStream()` と `MediaRecorder` に対応したブラウザが必要です。
