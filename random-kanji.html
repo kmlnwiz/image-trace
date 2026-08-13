@@ -6,10 +6,11 @@
     <meta name="theme-color" content="#f4f6f7" />
     <title>Random Kanji</title>
     <link rel="stylesheet" href="random-kanji.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
   </head>
-  <body>
-    <header class="kanji-header">
-      <a class="kanji-brand" href="./index.html" aria-label="ホームへ戻る">
+  <body class="tool-page random-kanji-tool" data-tool-key="random-kanji">
+    <header class="kanji-header tool-header">
+      <a class="kanji-brand tool-brand" href="./index.html" aria-label="ホームへ戻る">
         <span class="kanji-brand-mark random-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <div>
           <h1>Random Kanji</h1>
@@ -24,8 +25,8 @@
       </nav>
     </header>
 
-    <main class="kanji-workspace">
-      <aside class="kanji-controls" aria-label="ランダム画設定">
+    <main class="kanji-workspace tool-shell tool-shell-compact">
+      <aside class="kanji-controls tool-sidebar tool-sidebar-left" aria-label="ランダム画設定">
         <section class="control-section">
           <div class="section-heading">
             <h2>漢字</h2>
@@ -39,7 +40,7 @@
           </div>
         </section>
 
-        <section class="control-section">
+        <section class="control-section tool-panel-right">
           <div class="section-heading">
             <h2>ランダム表示</h2>
             <output id="strokeCount">— 画</output>
@@ -112,7 +113,7 @@
           </div>
         </section>
 
-        <section class="control-section export-section">
+        <section class="control-section export-section tool-panel-right">
           <dl class="output-summary">
             <div><dt>出力</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option></select></dd></div>
             <div><dt>形式</dt><dd>WebM / PNG</dd></div>
@@ -129,7 +130,7 @@
         </section>
       </aside>
 
-      <section class="kanji-stage-panel" aria-label="ランダム画プレビュー">
+      <section class="kanji-stage-panel tool-stage" aria-label="ランダム画プレビュー">
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
@@ -166,5 +167,6 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
     <script src="random-kanji.js"></script>
+    <script src="tool-ui.js"></script>
   </body>
 </html>

@@ -7,10 +7,11 @@
     <title>Text Reel</title>
     <link rel="stylesheet" href="text-dial.css" />
     <link rel="stylesheet" href="text-reel.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
   </head>
-  <body>
-    <header class="dial-header">
-      <a class="dial-brand" href="./index.html" aria-label="ホームへ戻る">
+  <body class="tool-page text-reel-tool" data-tool-key="text-reel">
+    <header class="dial-header tool-header">
+      <a class="dial-brand tool-brand" href="./index.html" aria-label="ホームへ戻る">
         <span class="dial-brand-mark reel-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <div>
           <h1>Text Reel</h1>
@@ -24,8 +25,8 @@
       </nav>
     </header>
 
-    <main class="dial-workspace reel-workspace">
-      <aside class="dial-controls" aria-label="文字リール設定">
+    <main class="dial-workspace reel-workspace tool-shell tool-shell-compact">
+      <aside class="dial-controls tool-sidebar tool-sidebar-left" aria-label="文字リール設定">
         <section class="control-section reel-columns-section">
           <div class="section-heading">
             <h2>列ごとの設定</h2>
@@ -39,7 +40,7 @@
           <p class="field-help">全列が0秒から回転します。リール文字列（最大40文字）、方向、速度、確定文字、確定時刻、停止動作を列ごとに指定します。</p>
         </section>
 
-        <section class="control-section">
+        <section class="control-section tool-panel-right">
           <div class="section-heading">
             <h2>タイミング</h2>
             <output id="durationMeta" class="meta-value">12.0 秒</output>
@@ -83,7 +84,7 @@
           </div>
         </section>
 
-        <section class="control-section export-section">
+        <section class="control-section export-section tool-panel-right">
           <dl class="output-summary">
             <div><dt>出力</dt><dd>1600 × 1000</dd></div>
             <div><dt>形式</dt><dd>WebM / PNG</dd></div>
@@ -99,7 +100,7 @@
         </section>
       </aside>
 
-      <section class="dial-stage-panel" aria-label="文字リールプレビュー">
+      <section class="dial-stage-panel tool-stage" aria-label="文字リールプレビュー">
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
@@ -135,5 +136,6 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
     <script src="text-reel.js"></script>
+    <script src="tool-ui.js"></script>
   </body>
 </html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Radical Highlight</title>
+    <link rel="stylesheet" href="studio-tools.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
+  </head>
+  <body class="tool-page radical-highlight" data-tool-key="radical-highlight">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">偏</span><div><h1>Radical Highlight</h1><p>部首や指定した画を強調する</p></div></a>
+      <nav class="header-nav" aria-label="ツール"><a href="./stroke-assemble.html">Stroke Assemble</a><a href="./reverse-kanji.html">Kanji Writer</a><a class="home-link" href="./index.html" aria-label="ホーム">⌂</a></nav>
+    </header>
+
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="漢字と強調範囲の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>漢字</h2><output id="strokeCount" class="meta-value">— 画</output></div>
+          <input id="characterInput" class="text-input character-input" type="text" value="語" maxlength="2" autocomplete="off" spellcheck="false" />
+          <div id="dataStatus" class="data-status" role="status" aria-live="polite"><span class="status-dot"></span><span>画データを読み込み中</span></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>強調する画</h2><button id="autoSelectButton" class="text-button" type="button">部首を自動選択</button></div>
+          <div id="strokePicker" class="stroke-picker" aria-label="強調する画番号"></div>
+          <p id="radicalHint" class="field-hint">データに登録された部首の画を自動選択します。各番号を押して手動調整できます。</p>
+          <div class="control-grid" style="margin-top: 10px">
+            <button id="selectAllButton" class="button button-secondary" type="button">すべて</button>
+            <button id="clearButton" class="button button-secondary" type="button">解除</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>配色</h2></div>
+          <div class="field-row color-row"><label for="baseColor">通常の画</label><span class="color-control"><input id="baseColor" type="color" value="#27343a" /><output>#27343A</output></span></div>
+          <label class="field-row" for="baseOpacity"><span>通常の濃さ</span><output id="baseOpacityValue">24%</output></label>
+          <input id="baseOpacity" class="range" type="range" min="0" max="100" step="1" value="24" />
+          <div class="field-row color-row"><label for="highlightColor">強調色</label><span class="color-control"><input id="highlightColor" type="color" value="#df573e" /><output>#DF573E</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#f5f1e9" /><output>#F5F1E9</output></span></div>
+        </section>
+      </aside>
+
+      <section class="stage-panel square-stage tool-stage" aria-label="部首強調プレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">1:1 · 800 × 800</span></div><span id="stageStatus" class="stage-status">読み込み中</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="800" height="800" aria-label="指定した漢字の画を色で強調した画像"></canvas><div id="canvasMessage" class="canvas-message" hidden></div></div>
+      </section>
+
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="画像出力の設定">
+        <section class="control-section export-section">
+          <div class="section-heading"><h2>画像出力</h2><span class="format-badge">PNG</span></div>
+          <div class="field-row select-row"><label for="outputSize">サイズ</label><select id="outputSize"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option></select></div>
+          <button id="imageExportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>PNGを書き出す</button>
+          <p class="field-hint">選択した画は強調色へ置き換えます。光彩などの効果は加えません。</p>
+          <p class="field-hint">部首情報・画データ: Hanzi Writer Japanese Data</p>
+        </section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="kanji-data.js"></script><script src="radical-highlight.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

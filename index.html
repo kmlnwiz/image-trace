@@ -39,7 +39,6 @@
             <div class="preview-timeline"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">01</span>
             <div>
               <h2>Outline Motion</h2>
               <p>透過画像の最大要素から輪郭を抽出し、始点と描画範囲を動かします。</p>
@@ -66,7 +65,6 @@
             <div class="preview-timeline dial-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">03</span>
             <div>
               <h2>Dial Type</h2>
               <p>文字をダイヤル錠のように並べ、前後の文字から目的の文字へ戻します。</p>
@@ -92,7 +90,6 @@
             <div class="preview-timeline kanji-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">05</span>
             <div>
               <h2>Kanji Writer</h2>
               <p>漢字を普通・ランダム・逆の3つの書き方でアニメーションします。</p>
@@ -117,10 +114,9 @@
                 <span class="is-selected"></span><span></span><span></span><span></span><span></span>
               </div>
             </div>
-            <div class="preview-timeline color-line"><i></i></div>
+            <span class="preview-format-badge">PNG</span>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">02</span>
             <div>
               <h2>Color Focus</h2>
               <p>イラストを色系統ごとに分け、選択した色だけを着色して残します。</p>
@@ -142,7 +138,6 @@
             <div class="preview-timeline reel-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">04</span>
             <div>
               <h2>Text Reel</h2>
               <p>文字列を縦方向へループ回転し、列ごとに指定した文字で停止させます。</p>
@@ -164,13 +159,32 @@
             <div class="preview-timeline random-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">06</span>
             <div>
               <h2>Random Kanji</h2>
               <p>漢字を画ごとに分解し、ランダムな順番で1画または数画ずつ表示します。</p>
             </div>
             <span class="launch-mark" aria-hidden="true">→</span>
           </div>
+        </a>
+
+        <a class="tool-card slice-card new-tool-card" href="./slice-motion.html" aria-describedby="imageTools">
+          <div class="tool-preview"><div class="preview-toolbar"><span></span><span></span><span></span></div><div class="new-tool-stage slice-home-stage"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="preview-timeline slice-line"><i></i></div></div>
+          <div class="tool-copy"><div><h2>Slice Motion</h2><p>画像を縦・横・グリッドへ分割し、時間差をつけて元の一枚へ組み上げます。</p></div><span class="launch-mark" aria-hidden="true">→</span></div>
+        </a>
+
+        <a class="tool-card flip-card new-tool-card" href="./flip-panels.html" aria-describedby="typeTools">
+          <div class="tool-preview"><div class="preview-toolbar"><span></span><span></span><span></span></div><div class="new-tool-stage flip-home-stage"><i>M</i><i>O</i><i class="is-back">X</i><i>I</i><i class="is-thin"></i><i class="is-fixed">N</i></div><div class="preview-timeline flip-line"><i></i></div></div>
+          <div class="tool-copy"><div><h2>Flip Panels</h2><p>表裏の文字を持つパネルが横回転し、ダミー面を見せながら表文字へ確定します。</p></div><span class="launch-mark" aria-hidden="true">→</span></div>
+        </a>
+
+        <a class="tool-card assemble-card new-tool-card" href="./stroke-assemble.html" aria-describedby="kanjiTools">
+          <div class="tool-preview"><div class="preview-toolbar"><span></span><span></span><span></span></div><div class="new-tool-stage assemble-home-stage"><span>集</span><i></i><i></i><i></i><i></i></div><div class="preview-timeline assemble-line"><i></i></div></div>
+          <div class="tool-copy"><div><h2>Stroke Assemble</h2><p>漢字の全画を領域内へランダム配置し、時間差をつけて完成位置へ戻します。</p></div><span class="launch-mark" aria-hidden="true">→</span></div>
+        </a>
+
+        <a class="tool-card radical-card new-tool-card" href="./radical-highlight.html" aria-describedby="kanjiTools">
+          <div class="tool-preview"><div class="preview-toolbar"><span></span><span></span><span></span></div><div class="new-tool-stage radical-home-stage"><span>語</span><strong>言</strong></div><span class="preview-format-badge">PNG</span></div>
+          <div class="tool-copy"><div><h2>Radical Highlight</h2><p>部首データまたは選択した画だけを別色に変え、静止画像として書き出します。</p></div><span class="launch-mark" aria-hidden="true">→</span></div>
         </a>
       </section>
     </main>

@@ -1,0 +1,382 @@
+:root {
+  --ui-header-height: 72px;
+  --ui-sidebar-width: 300px;
+  --ui-control-height: 36px;
+  --ui-radius: 7px;
+  --ui-shadow: 0 10px 28px rgba(24, 34, 41, 0.08);
+}
+
+.tool-page {
+  min-width: 900px;
+  color: var(--ink);
+  background: var(--page);
+}
+
+.tool-page .tool-header {
+  height: var(--ui-header-height);
+  min-height: var(--ui-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.tool-page .tool-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tool-page .tool-brand h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.tool-page .tool-brand p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tool-page :where(.header-actions, .header-nav, .dial-nav, .kanji-nav) {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tool-page :where(.header-nav, .dial-nav, .kanji-nav) > a {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.tool-page :where(.header-nav, .dial-nav, .kanji-nav) > a:hover {
+  color: var(--ink);
+}
+
+.tool-page :where(.header-nav, .dial-nav, .kanji-nav) > .home-link {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-radius);
+  color: var(--ink);
+  background: white;
+}
+
+.tool-page .tool-shell {
+  height: calc(100vh - var(--ui-header-height));
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--ui-sidebar-width) minmax(440px, 1fr) var(--ui-sidebar-width);
+}
+
+.tool-page .tool-shell.tool-shell-compact {
+  grid-template-columns: 320px minmax(480px, 1fr);
+}
+
+.tool-page .tool-sidebar {
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  background: var(--surface);
+}
+
+.tool-page .tool-sidebar-left {
+  border-right: 1px solid var(--line);
+}
+
+.tool-page .tool-sidebar-right {
+  border-left: 1px solid var(--line);
+}
+
+.tool-page .tool-sidebar > :where(.control-section, .panel-section) {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tool-page .section-heading {
+  min-height: 24px;
+  margin-bottom: 13px;
+}
+
+.tool-page .section-heading h2 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.tool-page :where(.meta-value, .section-heading output) {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-page .field-row {
+  min-height: 28px;
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.tool-page .field-row:first-child,
+.tool-page .section-heading + .field-row {
+  margin-top: 0;
+}
+
+.tool-page .field-row > :first-child {
+  min-width: 0;
+}
+
+.tool-page :where(select, .text-input, .text-area, .number-input, input[type="number"]) {
+  min-height: var(--ui-control-height);
+  border-color: var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+}
+
+.tool-page select {
+  padding: 0 30px 0 10px;
+}
+
+.tool-page .range {
+  accent-color: var(--accent);
+}
+
+.tool-page :where(.field-hint, .section-help, .dataset-note, .data-credit, .field-block small) {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.tool-page .button {
+  min-height: 36px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.tool-page .tool-stage {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #e9edef;
+}
+
+.tool-page .tool-stage .stage-toolbar {
+  min-height: 54px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.tool-page .stage-toolbar strong {
+  font-size: 12px;
+}
+
+.tool-page .stage-toolbar span {
+  font-size: 9px;
+}
+
+.tool-page .tool-stage > .canvas-shell {
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+}
+
+.tool-page .tool-stage > .transport {
+  min-height: 68px;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.tool-page .play-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+
+.tool-page .icon-button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
+.tool-page :where(.output-summary, .export-summary) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0 0 14px;
+}
+
+.tool-page :where(.output-summary, .export-summary) > div {
+  min-width: 0;
+  display: block;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafb;
+}
+
+.tool-page :where(.output-summary, .export-summary) dt {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tool-page :where(.output-summary, .export-summary) dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.tool-page :where(.output-summary, .export-summary) .output-size-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0 20px 0 0;
+  border: 0;
+  font-size: 11px;
+  font-weight: 750;
+  background-color: transparent;
+}
+
+.tool-page :where(.export-section, .output-section) :where(.export-image-button, .button-export, #imageExportButton) {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.tool-preset-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.tool-preset-menu > summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  list-style: none;
+  background: white;
+  cursor: pointer;
+}
+
+.tool-preset-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-preset-menu[open] > summary {
+  border-color: var(--accent);
+}
+
+.tool-preset-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 236px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--ui-shadow);
+}
+
+.tool-preset-panel > label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.tool-preset-panel select {
+  width: 100%;
+}
+
+.tool-preset-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tool-preset-actions button {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  background: #f8fafb;
+}
+
+.tool-preset-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.tool-preset-actions button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.tool-preset-actions .is-danger {
+  color: #a84035;
+}
+
+@media (max-width: 1180px) {
+  :root { --ui-sidebar-width: 272px; }
+  .tool-page .tool-shell.tool-shell-compact { grid-template-columns: 300px minmax(420px, 1fr); }
+  .tool-page :where(.header-nav, .dial-nav, .kanji-nav) > a:not(.home-link) { display: none; }
+}
+
+@media (max-width: 900px) {
+  .tool-page {
+    min-width: 320px;
+    overflow: auto;
+  }
+
+  .tool-page .tool-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  .tool-page .tool-shell,
+  .tool-page .tool-shell.tool-shell-compact {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tool-page .tool-sidebar {
+    overflow: visible;
+    border: 0;
+  }
+
+  .tool-page .tool-stage {
+    min-height: 620px;
+    order: -1;
+  }
+}

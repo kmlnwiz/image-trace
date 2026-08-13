@@ -6,10 +6,11 @@
     <meta name="theme-color" content="#f4f6f7" />
     <title>Dial Type</title>
     <link rel="stylesheet" href="text-dial.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
   </head>
-  <body>
-    <header class="dial-header">
-      <a class="dial-brand" href="./index.html" aria-label="ホームへ戻る">
+  <body class="tool-page text-dial-tool" data-tool-key="text-dial">
+    <header class="dial-header tool-header">
+      <a class="dial-brand tool-brand" href="./index.html" aria-label="ホームへ戻る">
         <span class="dial-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <div>
           <h1>Dial Type</h1>
@@ -24,8 +25,8 @@
       </nav>
     </header>
 
-    <main class="dial-workspace">
-      <aside class="dial-controls" aria-label="文字ダイヤル設定">
+    <main class="dial-workspace tool-shell tool-shell-compact">
+      <aside class="dial-controls tool-sidebar tool-sidebar-left" aria-label="文字ダイヤル設定">
         <section class="control-section text-section">
           <div class="section-heading">
             <h2>文字列</h2>
@@ -63,7 +64,7 @@
           <input id="visibleNeighbors" class="range range-last" type="range" min="1" max="3" step="1" value="1" />
         </section>
 
-        <section class="control-section">
+        <section class="control-section tool-panel-right">
           <div class="section-heading">
             <h2>タイミング</h2>
             <output id="totalDurationValue" class="meta-value">3.5 秒</output>
@@ -133,7 +134,7 @@
           </div>
         </section>
 
-        <section class="control-section export-section">
+        <section class="control-section export-section tool-panel-right">
           <dl class="output-summary">
             <div><dt>出力</dt><dd>1600 × 1000</dd></div>
             <div><dt>形式</dt><dd>WebM / PNG</dd></div>
@@ -149,7 +150,7 @@
         </section>
       </aside>
 
-      <section class="dial-stage-panel" aria-label="文字ダイヤルプレビュー">
+      <section class="dial-stage-panel tool-stage" aria-label="文字ダイヤルプレビュー">
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
@@ -185,5 +186,6 @@
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
     <script src="text-dial.js"></script>
+    <script src="tool-ui.js"></script>
   </body>
 </html>

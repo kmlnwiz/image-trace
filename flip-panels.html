@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#f4f6f7" /><title>Flip Panels</title><link rel="stylesheet" href="studio-tools.css" /><link rel="stylesheet" href="tool-ui.css" /></head>
+  <body class="tool-page flip-panels" data-tool-key="flip-panels">
+    <header class="app-header tool-header"><a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">↔</span><div><h1>Flip Panels</h1><p>両面文字パネルを回転して確定</p></div></a><nav class="header-nav" aria-label="ツール"><a href="./text-reel.html">Text Reel</a><a href="./text-dial.html">Dial Type</a><a class="home-link" href="./index.html" aria-label="ホーム">⌂</a></nav></header>
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="表裏文字列の設定">
+        <section class="control-section"><div class="section-heading"><h2>表文字列</h2><output id="frontCount" class="meta-value">0 / 24</output></div><textarea id="frontText" class="text-area" rows="2" spellcheck="false">MOTION LAB&#10;FLIP PANELS</textarea><p class="field-hint">最大2行・各行12文字。最後はすべて表の文字へ確定します。</p></section>
+        <section class="control-section"><div class="section-heading"><h2>裏文字列</h2><output id="backCount" class="meta-value">0 / 24</output></div><textarea id="backText" class="text-area" rows="2" spellcheck="false">DUMMY TEXT&#10;0123456789</textarea><p class="field-hint">回転中だけ見えるダミー文字です。足りない位置は空白になります。</p><button id="randomDummyButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>ダミーを自動生成</button></section>
+        <section class="control-section"><div class="section-heading"><h2>パネル</h2></div>
+          <label class="field-row" for="panelGap"><span>間隔</span><output id="panelGapValue">12 px</output></label><input id="panelGap" class="range" type="range" min="0" max="36" step="1" value="12" />
+          <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">10 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="28" step="1" value="10" />
+          <div class="field-row select-row"><label for="fontFamily">書体</label><select id="fontFamily"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
+          <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
+          <div class="field-row color-row"><label for="panelColor">表裏パネル</label><span class="color-control"><input id="panelColor" type="color" value="#f2ede3" /><output>#F2EDE3</output></span></div><div class="field-row color-row"><label for="textColor">表裏文字</label><span class="color-control"><input id="textColor" type="color" value="#17242b" /><output>#17242B</output></span></div><div class="field-row color-row"><label for="settledColor">確定表示</label><span class="color-control"><input id="settledColor" type="color" value="#d86f2f" /><output>#D86F2F</output></span></div><div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#101820" /><output>#101820</output></span></div>
+        </section>
+      </aside>
+      <section class="stage-panel tool-stage" aria-label="両面回転パネルプレビュー"><div class="stage-toolbar"><div><strong>プレビュー</strong><span>16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">22パネル</span></div><div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="表裏の文字を見せながら横回転するパネル"></canvas></div><div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:07.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div></section>
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="回転と出力の設定">
+        <section class="control-section"><div class="section-heading"><h2>横回転</h2></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">7.0 秒</output></label><input id="duration" class="range" type="range" min="1" max="60" step="0.5" value="7" />
+          <label class="field-row" for="minTurns"><span>最小回転数</span><output id="minTurnsValue">3 回</output></label><input id="minTurns" class="range" type="range" min="1" max="12" step="1" value="3" />
+          <label class="field-row" for="maxTurns"><span>最大回転数</span><output id="maxTurnsValue">8 回</output></label><input id="maxTurns" class="range" type="range" min="1" max="16" step="1" value="8" />
+          <div class="field-row select-row"><label for="timingMode">確定時刻</label><select id="timingMode"><option value="automatic" selected>自動</option><option value="individual">パネル別</option></select></div>
+          <div id="autoTimingControls">
+            <label class="field-row" for="settleSpan"><span>確定の時間差</span><output id="settleSpanValue">68%</output></label><input id="settleSpan" class="range" type="range" min="0" max="88" step="1" value="68" />
+            <div class="field-row select-row"><label for="settleOrder">確定順</label><select id="settleOrder"><option value="random" selected>ランダム</option><option value="sequence">左上から</option><option value="center">中央から</option><option value="simultaneous">同時</option></select></div>
+          </div>
+          <div id="individualTiming" class="panel-timing-editor" hidden>
+            <div class="timing-editor-heading"><strong>パネルごとの確定</strong><output id="selectedPanelLabel">1番</output></div>
+            <div id="panelTimingGrid" class="panel-timing-grid" aria-label="確定時刻を編集するパネル"></div>
+            <label class="field-row" for="panelSettleTime"><span>選択パネル</span><output id="panelSettleTimeValue">1.0 秒</output></label>
+            <input id="panelSettleTime" class="range" type="range" min="0" max="7" step="0.1" value="1" />
+            <label class="field-row precise-time-row" for="panelSettleTimeNumber"><span>確定時刻を入力</span><span class="number-field"><input id="panelSettleTimeNumber" type="number" min="0" max="7" step="0.1" value="1" /><span>秒</span></span></label>
+            <div class="timing-actions"><button id="copyAutomaticButton" type="button">自動から反映</button><button id="evenTimingButton" type="button">均等</button><button id="randomTimingButton" type="button">ランダム</button></div>
+          </div>
+          <p class="field-hint">回転レートと確定順は独立。各パネルは一定速度で回転し、確定時刻で表面に揃って停止します。</p>
+          <label class="check-row" for="randomDirection"><input id="randomDirection" type="checkbox" checked /><span>パネルごとに回転方向を変える</span></label>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>回転を再抽選</button>
+        </section>
+        <section class="control-section export-section"><div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div><dl class="export-summary"><div><dt>サイズ</dt><dd>1600 × 1000</dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl><label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.5 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="7" step="0.1" value="3.5" /><button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div></section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div><script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="flip-panels.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

@@ -6,10 +6,11 @@
     <meta name="theme-color" content="#f4f6f7" />
     <title>Color Focus</title>
     <link rel="stylesheet" href="color-focus.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
   </head>
-  <body>
-    <header class="app-header">
-      <a class="brand-block" href="./index.html" aria-label="ホームへ戻る">
+  <body class="tool-page color-focus-tool" data-tool-key="color-focus">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <div>
           <h1>Color Focus</h1>
@@ -26,8 +27,8 @@
       </div>
     </header>
 
-    <main class="workspace">
-      <aside class="side-panel color-panel" aria-label="色系統の選択">
+    <main class="workspace tool-shell">
+      <aside class="side-panel color-panel tool-sidebar tool-sidebar-left" aria-label="色系統の選択">
         <section class="panel-section image-section">
           <div class="section-heading">
             <h2>画像</h2>
@@ -89,7 +90,7 @@
         </section>
       </aside>
 
-      <section class="stage-panel" aria-label="色分解プレビュー">
+      <section class="stage-panel tool-stage" aria-label="色分解プレビュー">
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
@@ -126,7 +127,7 @@
         </div>
       </section>
 
-      <aside class="side-panel settings-panel" aria-label="判定と出力の設定">
+      <aside class="side-panel settings-panel tool-sidebar tool-sidebar-right" aria-label="判定と出力の設定">
         <section class="panel-section">
           <div class="section-heading">
             <div>
@@ -195,5 +196,6 @@
 
     <script src="motion-storage.js"></script>
     <script src="color-focus.js"></script>
+    <script src="tool-ui.js"></script>
   </body>
 </html>
