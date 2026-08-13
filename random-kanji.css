@@ -1,0 +1,147 @@
+@import url("./reverse-kanji.css");
+
+:root {
+  --accent: #176d78;
+  --accent-soft: #e2f1f2;
+  --warm: #d16948;
+}
+
+.random-brand-mark {
+  background: #f5fbfb;
+}
+
+.random-brand-mark i:nth-child(1) {
+  width: 12px;
+  top: 7px;
+  right: 5px;
+  transform: rotate(18deg);
+}
+
+.random-brand-mark i:nth-child(2) {
+  width: 18px;
+  top: 15px;
+  left: 5px;
+  transform: rotate(-28deg);
+}
+
+.random-brand-mark i:nth-child(3) {
+  width: 13px;
+  right: 7px;
+  bottom: 6px;
+  transform: rotate(48deg);
+}
+
+.random-summary div {
+  border-color: #c8dcde;
+  background: #f2f9f9;
+}
+
+.random-summary strong {
+  color: #155b65;
+}
+
+.timing-hint {
+  margin-top: -5px;
+  margin-bottom: 8px;
+}
+
+.shuffle-button {
+  min-height: 38px;
+  margin-top: 12px;
+  color: #155b65;
+  border-color: #bdd4d7;
+  background: #f6fbfb;
+}
+
+.shuffle-button:hover {
+  border-color: #81adb2;
+  background: #edf7f7;
+}
+
+.check-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.check-row input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.sequence-block {
+  display: grid;
+  gap: 7px;
+  margin-top: 7px;
+  padding-top: 11px;
+  border-top: 1px solid #e5e9eb;
+}
+
+.sequence-block > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.sequence-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 24px;
+}
+
+.sequence-preview span {
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+  border: 1px solid #d8e0e2;
+  border-radius: 4px;
+  color: #758087;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  background: #f7f9f9;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.sequence-preview span.is-done {
+  color: #225e65;
+  border-color: #bdd7d9;
+  background: #eaf5f5;
+}
+
+.sequence-preview span.is-current {
+  color: white;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.sequence-preview .sequence-more {
+  color: var(--muted);
+  border-style: dashed;
+  background: transparent;
+}
+
+.button-export {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.button-export:hover {
+  background: #105b65;
+}
+
+.export-progress div {
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sequence-preview span {
+    transition: none;
+  }
+}

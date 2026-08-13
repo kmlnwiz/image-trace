@@ -2,29 +2,32 @@
 
 const OUTPUT_WIDTH = 800;
 const OUTPUT_HEIGHT = 800;
-const KANJI_SETTINGS_KEY = "motion-lab:reverse-kanji-settings:v4";
-const DATA_CACHE_PREFIX = "motion-lab:hanzi-writer-jp:";
-const DATA_CACHE_INDEX_KEY = "motion-lab:hanzi-writer-jp-cache-index:v1";
-const MAX_DATA_CACHE_ENTRIES = 24;
 const SOURCE_WIDTH = 1024;
 const SOURCE_BASELINE = 900;
 const CHARACTER_PADDING = 32;
-const REVEAL_WIDTH = 120;
+const MAX_DURATION = 60;
+const RANDOM_KANJI_SETTINGS_KEY = "motion-lab:random-kanji-settings:v1";
+const DATA_CACHE_PREFIX = "motion-lab:hanzi-writer-jp:";
+const DATA_CACHE_INDEX_KEY = "motion-lab:hanzi-writer-jp-cache-index:v1";
+const MAX_DATA_CACHE_ENTRIES = 24;
 
 const elements = {
   canvas: document.querySelector("#kanjiCanvas"),
   characterInput: document.querySelector("#characterInput"),
   dataStatus: document.querySelector("#dataStatus"),
   strokeCount: document.querySelector("#strokeCount"),
-  strokeOrderMode: document.querySelector("#strokeOrderMode"),
-  orderSummary: document.querySelector("#orderSummary"),
-  directionSummary: document.querySelector("#directionSummary"),
-  orderShuffleButton: document.querySelector("#orderShuffleButton"),
   duration: document.querySelector("#duration"),
   durationValue: document.querySelector("#durationValue"),
-  strokeInterval: document.querySelector("#strokeInterval"),
-  strokeIntervalValue: document.querySelector("#strokeIntervalValue"),
-  easing: document.querySelector("#easing"),
+  strokesPerStep: document.querySelector("#strokesPerStep"),
+  strokesPerStepValue: document.querySelector("#strokesPerStepValue"),
+  stepInterval: document.querySelector("#stepInterval"),
+  stepIntervalValue: document.querySelector("#stepIntervalValue"),
+  durationSummary: document.querySelector("#durationSummary"),
+  displayMode: document.querySelector("#displayMode"),
+  revealStyle: document.querySelector("#revealStyle"),
+  shuffleButton: document.querySelector("#shuffleButton"),
+  autoShuffle: document.querySelector("#autoShuffle"),
+  sequencePreview: document.querySelector("#sequencePreview"),
   guideOpacity: document.querySelector("#guideOpacity"),
   guideOpacityValue: document.querySelector("#guideOpacityValue"),
   inkColor: document.querySelector("#inkColor"),
@@ -50,20 +53,14 @@ const elements = {
 };
 
 const context = elements.canvas.getContext("2d");
-const strokeCanvas = document.createElement("canvas");
-const strokeContext = strokeCanvas.getContext("2d");
-strokeCanvas.width = OUTPUT_WIDTH;
-strokeCanvas.height = OUTPUT_HEIGHT;
-
 const segmenter = typeof Intl.Segmenter === "function"
   ? new Intl.Segmenter("ja", { granularity: "grapheme" })
   : null;
 
 const state = {
-  character: "逆",
-  sourceStrokes: [],
+  character: "舞",
   strokes: [],
-  totalStrokeWeight: 0,
+  groups: [],
   playhead: 0,
   isPlaying: false,
   isExporting: false,
@@ -94,25 +91,15 @@ function formatTime(seconds) {
   return `${minutes}:${remainder.toFixed(1).padStart(4, "0")}`;
 }
 
-function ease(progress) {
-  const value = clamp(progress, 0, 1);
-  if (elements.easing.value === "easeIn") return value * value * value;
-  if (elements.easing.value === "easeOut") return 1 - Math.pow(1 - value, 3);
-  if (elements.easing.value === "easeInOut") {
-    return value < 0.5
-      ? 4 * value * value * value
-      : 1 - Math.pow(-2 * value + 2, 3) / 2;
-  }
-  return value;
-}
-
 function saveSettings() {
-  MotionStorage.write(KANJI_SETTINGS_KEY, {
+  MotionStorage.write(RANDOM_KANJI_SETTINGS_KEY, {
     character: state.character,
-    strokeOrderMode: elements.strokeOrderMode.value,
     duration: elements.duration.value,
-    strokeInterval: elements.strokeInterval.value,
-    easing: elements.easing.value,
+    strokesPerStep: elements.strokesPerStep.value,
+    stepInterval: elements.stepInterval.value,
+    displayMode: elements.displayMode.value,
+    revealStyle: elements.revealStyle.value,
+    autoShuffle: elements.autoShuffle.checked,
     guideOpacity: elements.guideOpacity.value,
     inkColor: elements.inkColor.value,
     backgroundColor: elements.backgroundColor.value,
@@ -123,26 +110,31 @@ function saveSettings() {
 }
 
 function restoreSettings() {
-  const settings = MotionStorage.read(KANJI_SETTINGS_KEY);
+  const settings = MotionStorage.read(RANDOM_KANJI_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.character === "string" && splitCharacters(settings.character).length) {
     state.character = splitCharacters(settings.character)[0];
     elements.characterInput.value = state.character;
   }
   const controls = {
-    strokeOrderMode: elements.strokeOrderMode,
     duration: elements.duration,
-    strokeInterval: elements.strokeInterval,
-    easing: elements.easing,
+    strokesPerStep: elements.strokesPerStep,
+    stepInterval: elements.stepInterval,
+    displayMode: elements.displayMode,
+    revealStyle: elements.revealStyle,
     guideOpacity: elements.guideOpacity,
     inkColor: elements.inkColor,
     backgroundColor: elements.backgroundColor,
     previewSpeed: elements.previewSpeed,
+    imageTime: elements.imageTime,
     outputSize: elements.outputSize,
   };
   Object.entries(controls).forEach(([name, control]) => {
     MotionStorage.restoreControl(control, settings[name]);
   });
+  if (typeof settings.autoShuffle === "boolean") {
+    elements.autoShuffle.checked = settings.autoShuffle;
+  }
   elements.colorControls.forEach((input) => {
     input.nextElementSibling.value = input.value.toUpperCase();
   });
@@ -192,7 +184,7 @@ async function fetchCharacterData(character, signal) {
         continue;
       }
       const data = await response.json();
-      if (!Array.isArray(data.strokes) || !Array.isArray(data.medians)) {
+      if (!Array.isArray(data.strokes) || !data.strokes.length) {
         throw new Error("Invalid character data");
       }
       writeDataCache(character, data);
@@ -206,92 +198,13 @@ async function fetchCharacterData(character, signal) {
 }
 
 function parseCharacterData(data) {
-  if (!data.strokes.length || data.strokes.length !== data.medians.length) {
-    throw new Error("Stroke outlines and medians do not match");
+  if (!Array.isArray(data.strokes) || !data.strokes.length) {
+    throw new Error("Stroke outlines are missing");
   }
-
-  const forwardStrokes = data.strokes.map((pathData, index) => {
-    const median = data.medians[index]
-      .filter((point) => Array.isArray(point) && point.length >= 2)
-      .map((point) => ({ x: Number(point[0]), y: Number(point[1]) }))
-      .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
-    if (median.length < 2) throw new Error("A stroke median is incomplete");
-
-    const extendedMedian = extendMedianToOutline(new Path2D(pathData), median);
-    const cumulative = [0];
-    let length = 0;
-    for (let pointIndex = 1; pointIndex < extendedMedian.length; pointIndex += 1) {
-      const from = extendedMedian[pointIndex - 1];
-      const to = extendedMedian[pointIndex];
-      length += Math.hypot(to.x - from.x, to.y - from.y);
-      cumulative.push(length);
-    }
-    return {
-      number: index + 1,
-      shape: new Path2D(pathData),
-      median: extendedMedian,
-      cumulative,
-      length,
-      weight: Math.max(28, Math.pow(length, 0.78)),
-    };
-  });
-  return forwardStrokes;
-}
-
-function shuffledStrokes(strokes) {
-  const shuffled = [...strokes];
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-  }
-  return shuffled;
-}
-
-function applyStrokeOrder() {
-  const mode = elements.strokeOrderMode.value;
-  if (mode === "reverse") {
-    state.strokes = [...state.sourceStrokes].reverse();
-  } else if (mode === "random") {
-    state.strokes = shuffledStrokes(state.sourceStrokes);
-  } else {
-    state.strokes = [...state.sourceStrokes];
-  }
-  state.totalStrokeWeight = state.strokes.reduce((sum, stroke) => sum + stroke.weight, 0);
-}
-
-function pointOutsideStroke(shape, edge, neighbor) {
-  const deltaX = edge.x - neighbor.x;
-  const deltaY = edge.y - neighbor.y;
-  const vectorLength = Math.hypot(deltaX, deltaY) || 1;
-  const directionX = deltaX / vectorLength;
-  const directionY = deltaY / vectorLength;
-  let exitDistance = REVEAL_WIDTH;
-
-  // Keep the round reveal cap completely outside the outline at progress zero.
-  // It can then move continuously through bends without a join suddenly
-  // appearing, while still entering the terminal edge a few pixels at a time.
-  for (let distance = 2; distance <= SOURCE_WIDTH; distance += 2) {
-    const point = {
-      x: edge.x + directionX * distance,
-      y: edge.y + directionY * distance,
-    };
-    if (!strokeContext.isPointInPath(shape, point.x, point.y)) {
-      exitDistance = distance;
-      break;
-    }
-  }
-  const guardedDistance = exitDistance + REVEAL_WIDTH / 2 + 2;
-  return {
-    x: edge.x + directionX * guardedDistance,
-    y: edge.y + directionY * guardedDistance,
-  };
-}
-
-function extendMedianToOutline(shape, median) {
-  const start = pointOutsideStroke(shape, median[0], median[1]);
-  const lastIndex = median.length - 1;
-  const end = pointOutsideStroke(shape, median[lastIndex], median[lastIndex - 1]);
-  return [start, ...median, end];
+  return data.strokes.map((pathData, index) => ({
+    number: index + 1,
+    shape: new Path2D(pathData),
+  }));
 }
 
 function setDataStatus(message, type = "loading") {
@@ -305,19 +218,116 @@ function setCanvasMessage(message = "") {
   elements.canvasMessage.hidden = !message;
 }
 
+function createRandomOrder() {
+  const order = state.strokes.map((_, index) => index);
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+  }
+  return order;
+}
+
+function buildGroups() {
+  if (!state.strokes.length) {
+    state.groups = [];
+    renderSequencePreview();
+    return;
+  }
+  const amount = Math.max(1, Number(elements.strokesPerStep.value) || 1);
+  const duration = Number(elements.duration.value);
+  const interval = Number(elements.stepInterval.value);
+  const stepCount = Math.max(1, Math.ceil(duration / interval));
+  state.groups = [];
+  let cycle = 0;
+  while (state.groups.length < stepCount) {
+    const order = createRandomOrder();
+    const cycleLength = Math.ceil(order.length / amount);
+    for (let index = 0; index < order.length && state.groups.length < stepCount; index += amount) {
+      state.groups.push({
+        strokes: order.slice(index, index + amount),
+        cycle,
+        position: Math.floor(index / amount),
+        cycleLength,
+      });
+    }
+    cycle += 1;
+  }
+  renderSequencePreview();
+}
+
+function randomizeOrder(announce = false) {
+  if (!state.strokes.length) return;
+  buildGroups();
+  state.playhead = 0;
+  stopPlayback(false);
+  syncTimingLimits();
+  updateUI();
+  render();
+  if (announce) showToast("表示順をシャッフルしました");
+}
+
+function renderSequencePreview() {
+  elements.sequencePreview.replaceChildren();
+  const visibleGroups = state.groups.slice(0, 24);
+  visibleGroups.forEach((group, index) => {
+    const item = document.createElement("span");
+    item.dataset.groupIndex = String(index);
+    const numbers = group.strokes.map((strokeIndex) => state.strokes[strokeIndex].number).join("・");
+    item.textContent = group.position === 0 ? `${group.cycle + 1}巡 ${numbers}` : numbers;
+    item.title = `${group.cycle + 1}巡目 · 第${numbers.replaceAll("・", "・第")}画`;
+    elements.sequencePreview.append(item);
+  });
+  if (state.groups.length > visibleGroups.length) {
+    const more = document.createElement("span");
+    more.className = "sequence-more";
+    more.textContent = `+${state.groups.length - visibleGroups.length}`;
+    elements.sequencePreview.append(more);
+  }
+}
+
+function getTotalDuration() {
+  return Number(elements.duration.value);
+}
+
+function syncTimingLimits() {
+  const strokeCount = state.strokes.length;
+  if (!strokeCount) {
+    elements.duration.disabled = true;
+    elements.strokesPerStep.disabled = true;
+    elements.stepInterval.disabled = true;
+    elements.imageTime.max = "0";
+    elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+    return;
+  }
+
+  elements.strokesPerStep.max = String(Math.max(1, strokeCount));
+  elements.strokesPerStep.value = String(clamp(Number(elements.strokesPerStep.value), 1, Math.max(1, strokeCount)));
+
+  elements.duration.value = String(clamp(Number(elements.duration.value), 1, MAX_DURATION));
+  const duration = getTotalDuration();
+  elements.stepInterval.max = duration.toFixed(1);
+  elements.stepInterval.value = String(clamp(Number(elements.stepInterval.value), 0.1, duration));
+  elements.imageTime.max = String(duration);
+  elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, duration));
+  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  elements.duration.disabled = false;
+  elements.strokesPerStep.disabled = false;
+  elements.stepInterval.disabled = false;
+}
+
 async function loadStrokeData(character) {
   const requestId = ++state.loadRequestId;
   state.loadController?.abort();
   state.loadController = new AbortController();
   state.isLoading = true;
-  state.sourceStrokes = [];
   state.strokes = [];
-  state.totalStrokeWeight = 0;
+  state.groups = [];
   state.playhead = 0;
-  syncIntervalLimit();
   stopPlayback(false);
+  syncTimingLimits();
+  renderSequencePreview();
   setDataStatus("日本語用の画データを読み込み中");
-  setCanvasMessage("正しい書き順データを読み込んでいます…");
+  setCanvasMessage("漢字の画データを読み込んでいます…");
   updateUI();
   render();
 
@@ -325,13 +335,13 @@ async function loadStrokeData(character) {
     const data = await fetchCharacterData(character, state.loadController.signal);
     const strokes = parseCharacterData(data);
     if (requestId !== state.loadRequestId) return;
-    state.sourceStrokes = strokes;
-    applyStrokeOrder();
+    state.strokes = strokes;
     state.isLoading = false;
-    syncIntervalLimit();
-    saveSettings();
-    setDataStatus(`${strokes.length}画の書き順データを読み込み済み`, "ready");
+    syncTimingLimits();
+    buildGroups();
+    setDataStatus(`${strokes.length}画をランダムに分割`, "ready");
     setCanvasMessage();
+    saveSettings();
     updateUI();
     render();
   } catch (error) {
@@ -360,105 +370,35 @@ function resizeOutputCanvas() {
   const size = Number(elements.outputSize.value);
   elements.canvas.width = size;
   elements.canvas.height = size;
-  strokeCanvas.width = size;
-  strokeCanvas.height = size;
   elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`;
 }
 
-function strokeAmounts(progress) {
-  if (!state.totalStrokeWeight) return [];
-  const duration = Number(elements.duration.value);
-  const interval = Number(elements.strokeInterval.value);
-  const intervalTotal = interval * Math.max(0, state.strokes.length - 1);
-  const drawingTime = Math.max(0.001, duration - intervalTotal);
-  const cursor = clamp(progress, 0, 1) * duration;
-  let elapsedSeconds = 0;
-  return state.strokes.map((stroke, index) => {
-    const strokeDuration = drawingTime * stroke.weight / state.totalStrokeWeight;
-    const amount = ease((cursor - elapsedSeconds) / strokeDuration);
-    elapsedSeconds += strokeDuration;
-    if (index < state.strokes.length - 1) elapsedSeconds += interval;
-    return clamp(amount, 0, 1);
+function drawStroke(stroke, alpha = 1) {
+  context.save();
+  applyCharacterTransform(context);
+  context.globalAlpha = clamp(alpha, 0, 1);
+  context.fillStyle = elements.inkColor.value;
+  context.fill(stroke.shape);
+  context.restore();
+}
+
+function groupAmounts(progress) {
+  const interval = Number(elements.stepInterval.value);
+  const cursor = clamp(progress, 0, 1) * getTotalDuration();
+  const isInstant = elements.revealStyle.value === "instant";
+  const fadeDuration = Math.min(0.35, Math.max(0.08, interval * 0.3));
+  return state.groups.map((_, index) => {
+    if (progress >= 1) return 1;
+    const elapsed = cursor - index * interval;
+    return isInstant ? Number(elapsed >= 0) : clamp(elapsed / fadeDuration, 0, 1);
   });
 }
 
-function traceReverseMedian(ctx, stroke, amount) {
-  if (amount <= 0) return;
-  const targetDistance = stroke.length * (1 - clamp(amount, 0, 1));
-  const points = stroke.median;
-  const last = points[points.length - 1];
-  ctx.beginPath();
-  ctx.moveTo(last.x, last.y);
-
-  let index = points.length - 2;
-  while (index >= 0 && stroke.cumulative[index] >= targetDistance) {
-    ctx.lineTo(points[index].x, points[index].y);
-    index -= 1;
-  }
-  if (index >= 0 && index + 1 < points.length) {
-    const from = points[index];
-    const to = points[index + 1];
-    const segmentLength = stroke.cumulative[index + 1] - stroke.cumulative[index] || 1;
-    const mix = (targetDistance - stroke.cumulative[index]) / segmentLength;
-    ctx.lineTo(
-      from.x + (to.x - from.x) * mix,
-      from.y + (to.y - from.y) * mix,
-    );
-  }
-  ctx.stroke();
-}
-
-function traceForwardMedian(ctx, stroke, amount) {
-  if (amount <= 0) return;
-  const targetDistance = stroke.length * clamp(amount, 0, 1);
-  const points = stroke.median;
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-
-  let index = 1;
-  while (index < points.length && stroke.cumulative[index] <= targetDistance) {
-    ctx.lineTo(points[index].x, points[index].y);
-    index += 1;
-  }
-  if (index < points.length) {
-    const from = points[index - 1];
-    const to = points[index];
-    const segmentLength = stroke.cumulative[index] - stroke.cumulative[index - 1] || 1;
-    const mix = (targetDistance - stroke.cumulative[index - 1]) / segmentLength;
-    ctx.lineTo(
-      from.x + (to.x - from.x) * mix,
-      from.y + (to.y - from.y) * mix,
-    );
-  }
-  ctx.stroke();
-}
-
-function drawCompleteStroke(ctx, stroke, color, alpha = 1) {
-  ctx.save();
-  applyCharacterTransform(ctx);
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  ctx.fill(stroke.shape);
-  ctx.restore();
-}
-
-function drawPartialStroke(stroke, amount) {
-  strokeContext.save();
-  strokeContext.setTransform(1, 0, 0, 1, 0, 0);
-  strokeContext.clearRect(0, 0, strokeCanvas.width, strokeCanvas.height);
-  applyCharacterTransform(strokeContext);
-  strokeContext.clip(stroke.shape);
-  strokeContext.strokeStyle = elements.inkColor.value;
-  strokeContext.lineWidth = REVEAL_WIDTH;
-  strokeContext.lineCap = "round";
-  strokeContext.lineJoin = "round";
-  if (elements.strokeOrderMode.value === "reverse") {
-    traceReverseMedian(strokeContext, stroke, amount);
-  } else {
-    traceForwardMedian(strokeContext, stroke, amount);
-  }
-  strokeContext.restore();
-  context.drawImage(strokeCanvas, 0, 0);
+function activeGroupIndex(progress = state.playhead) {
+  if (!state.groups.length) return -1;
+  if (progress >= 1) return state.groups.length - 1;
+  const cursor = clamp(progress, 0, 1) * getTotalDuration();
+  return clamp(Math.floor(cursor / Number(elements.stepInterval.value)), 0, state.groups.length - 1);
 }
 
 function render(progress = state.playhead) {
@@ -471,69 +411,45 @@ function render(progress = state.playhead) {
   if (state.strokes.length) {
     const guideOpacity = Number(elements.guideOpacity.value) / 100;
     if (guideOpacity > 0) {
-      state.strokes.forEach((stroke) => {
-        drawCompleteStroke(context, stroke, elements.inkColor.value, guideOpacity);
-      });
+      state.strokes.forEach((stroke) => drawStroke(stroke, guideOpacity));
     }
 
-    const amounts = strokeAmounts(progress);
-    state.strokes.forEach((stroke, index) => {
-      const amount = amounts[index];
-      if (amount <= 0) return;
-      if (amount >= 0.9999) drawCompleteStroke(context, stroke, elements.inkColor.value);
-      else drawPartialStroke(stroke, amount);
-    });
+    const amounts = groupAmounts(progress);
+    if (elements.displayMode.value === "replace") {
+      const active = activeGroupIndex(progress);
+      state.groups[active]?.strokes.forEach((strokeIndex) => drawStroke(state.strokes[strokeIndex], amounts[active]));
+    } else {
+      const active = activeGroupIndex(progress);
+      const activeCycle = state.groups[active]?.cycle;
+      state.groups.forEach((group, groupIndex) => {
+        if (group.cycle !== activeCycle || groupIndex > active || amounts[groupIndex] <= 0) return;
+        group.strokes.forEach((strokeIndex) => drawStroke(state.strokes[strokeIndex], amounts[groupIndex]));
+      });
+    }
   }
   context.restore();
 }
 
-function activeStrokeNumber() {
-  const amounts = strokeAmounts(state.playhead);
-  const activeIndex = amounts.findIndex((amount) => amount < 1);
-  if (activeIndex < 0) return null;
-  return state.strokes[activeIndex]?.number || null;
-}
-
-function syncTimeLimits() {
-  const duration = Number(elements.duration.value);
-  elements.imageTime.max = String(duration);
-  elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, duration));
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
-}
-
-function syncIntervalLimit() {
-  const strokeCount = state.strokes.length;
-  if (!strokeCount) {
-    elements.strokeInterval.max = "5";
-    elements.strokeInterval.disabled = true;
-    return;
-  }
-  const duration = Number(elements.duration.value);
-  const maxInterval = strokeCount > 1
-    ? Math.min(5, duration * 0.9 / (strokeCount - 1))
-    : 0;
-  elements.strokeInterval.max = maxInterval.toFixed(2);
-  elements.strokeInterval.value = String(clamp(Number(elements.strokeInterval.value), 0, maxInterval));
-  elements.strokeInterval.disabled = strokeCount <= 1;
+function updateSequenceProgress() {
+  const active = activeGroupIndex();
+  const finished = state.playhead >= 1;
+  [...elements.sequencePreview.children].forEach((item) => {
+    const groupIndex = Number(item.dataset.groupIndex);
+    item.classList.toggle("is-current", !finished && groupIndex === active);
+    item.classList.toggle("is-done", Number.isFinite(groupIndex) && (finished || groupIndex < active));
+  });
 }
 
 function updateUI() {
-  const duration = Number(elements.duration.value);
+  const duration = getTotalDuration();
   const hasData = state.strokes.length > 0;
-  const mode = elements.strokeOrderMode.value;
-  const modeSummaries = {
-    normal: ["最初 → 最後", "始点 → 終点"],
-    random: ["ランダム", "始点 → 終点"],
-    reverse: ["最後 → 最初", "終点 → 始点"],
-  };
-  const [orderSummary, directionSummary] = modeSummaries[mode];
-  elements.orderSummary.textContent = orderSummary;
-  elements.directionSummary.textContent = directionSummary;
-  elements.orderShuffleButton.hidden = mode !== "random";
-  elements.durationValue.value = `${duration.toFixed(1)} 秒`;
-  elements.strokeIntervalValue.value = `${Number(elements.strokeInterval.value).toFixed(2)} 秒`;
-  elements.guideOpacityValue.value = `${elements.guideOpacity.value}%`;
   elements.strokeCount.value = hasData ? `${state.strokes.length} 画` : "— 画";
+  elements.durationValue.value = `${duration.toFixed(1)} 秒`;
+  elements.strokesPerStepValue.value = `${elements.strokesPerStep.value} 画`;
+  elements.stepIntervalValue.value = `${Number(elements.stepInterval.value).toFixed(1)} 秒`;
+  const cycleCount = hasData ? state.groups[state.groups.length - 1].cycle + 1 : 0;
+  elements.durationSummary.textContent = hasData ? `${cycleCount}巡目まで` : "— 巡";
+  elements.guideOpacityValue.value = `${elements.guideOpacity.value}%`;
   elements.timeline.value = String(Math.round(state.playhead * 1000));
   elements.currentTime.value = formatTime(state.playhead * duration);
   elements.totalTime.value = formatTime(duration);
@@ -541,8 +457,7 @@ function updateUI() {
   elements.playButton.setAttribute("aria-label", state.isPlaying ? "一時停止" : "再生");
   elements.playButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.restartButton.disabled = !hasData || state.isLoading || state.isExporting;
-  elements.strokeOrderMode.disabled = state.isLoading || state.isExporting;
-  elements.orderShuffleButton.disabled = !hasData || state.isLoading || state.isExporting;
+  elements.shuffleButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.outputSize.disabled = state.isExporting;
   elements.exportButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.imageExportButton.disabled = !hasData || state.isLoading || state.isExporting;
@@ -552,17 +467,15 @@ function updateUI() {
   } else if (!hasData) {
     elements.stageStatus.textContent = "画データなし";
   } else {
-    const active = activeStrokeNumber();
-    if (!active) {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 完成`;
-    } else if (mode === "reverse") {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 第${active}画を終点から描画`;
-    } else if (mode === "random") {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · ランダム順で第${active}画を描画`;
-    } else {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 第${active}画を通常順で描画`;
-    }
+    const active = activeGroupIndex();
+    const group = state.groups[active];
+    const numbers = group.strokes
+      .map((strokeIndex) => `第${state.strokes[strokeIndex].number}画`)
+      .join("・");
+    const prefix = state.playhead >= 1 ? "終了" : `${group.cycle + 1}巡目`;
+    elements.stageStatus.textContent = `${prefix} · ${group.position + 1}/${group.cycleLength}セット · ${numbers}`;
   }
+  updateSequenceProgress();
 }
 
 function showToast(message) {
@@ -576,7 +489,7 @@ function showToast(message) {
 
 function animate(timestamp) {
   if (!state.isPlaying) return;
-  const durationMs = Number(elements.duration.value) * 1000;
+  const durationMs = getTotalDuration() * 1000;
   const speed = Number(elements.previewSpeed.value);
   state.playhead = clamp((timestamp - state.startedAt) * speed / durationMs, 0, 1);
   render();
@@ -592,13 +505,15 @@ function animate(timestamp) {
 function startPlayback() {
   if (!state.strokes.length || state.isLoading || state.isExporting) return;
   if (state.playhead >= 1) {
-    if (elements.strokeOrderMode.value === "random") applyStrokeOrder();
+    if (elements.autoShuffle.checked) {
+      buildGroups();
+    }
     state.playhead = 0;
     render();
   }
   state.isPlaying = true;
   const speed = Number(elements.previewSpeed.value);
-  state.startedAt = performance.now() - state.playhead * Number(elements.duration.value) * 1000 / speed;
+  state.startedAt = performance.now() - state.playhead * getTotalDuration() * 1000 / speed;
   updateUI();
   state.rafId = requestAnimationFrame(animate);
 }
@@ -642,7 +557,7 @@ async function exportVideo() {
   elements.exportButton.lastChild.textContent = " 書き出し中";
   elements.exportProgress.hidden = false;
   elements.exportProgressBar.style.width = "0%";
-  const durationMs = Number(elements.duration.value) * 1000;
+  const durationMs = getTotalDuration() * 1000;
   const startedAt = performance.now();
   const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
   recorder.start(250);
@@ -667,7 +582,7 @@ async function exportVideo() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${safeFileCharacter()}-kanji-writer-${elements.strokeOrderMode.value}.webm`;
+  anchor.download = `${safeFileCharacter()}-random-kanji.webm`;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   state.isExporting = false;
@@ -680,7 +595,7 @@ async function exportVideo() {
 function exportImage() {
   if (!state.strokes.length) return;
   stopPlayback(false);
-  const duration = Number(elements.duration.value);
+  const duration = getTotalDuration();
   state.playhead = duration ? Number(elements.imageTime.value) / duration : 0;
   state.playhead = clamp(state.playhead, 0, 1);
   render();
@@ -693,7 +608,7 @@ function exportImage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${safeFileCharacter()}-kanji-writer-${elements.strokeOrderMode.value}-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.download = `${safeFileCharacter()}-random-kanji-${Number(elements.imageTime.value).toFixed(1)}s.png`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
@@ -706,12 +621,12 @@ elements.characterInput.addEventListener("input", () => {
   state.character = character;
   clearTimeout(state.loadTimer);
   state.loadController?.abort();
-  state.sourceStrokes = [];
   state.strokes = [];
-  state.totalStrokeWeight = 0;
+  state.groups = [];
   state.playhead = 0;
-  syncIntervalLimit();
   stopPlayback();
+  syncTimingLimits();
+  renderSequencePreview();
   saveSettings();
   if (!character) {
     state.isLoading = false;
@@ -723,41 +638,28 @@ elements.characterInput.addEventListener("input", () => {
   state.loadTimer = window.setTimeout(() => loadStrokeData(character), 220);
 });
 
-function resetStrokeOrder(announce = false) {
-  if (!state.sourceStrokes.length) {
-    saveSettings();
-    updateUI();
-    return;
-  }
+function rebuildAnimation() {
   state.playhead = 0;
   stopPlayback(false);
-  applyStrokeOrder();
-  syncIntervalLimit();
+  syncTimingLimits();
+  buildGroups();
   saveSettings();
   updateUI();
   render();
-  if (announce) showToast("ランダムな画順を更新しました");
 }
 
-elements.strokeOrderMode.addEventListener("change", () => resetStrokeOrder(false));
-elements.orderShuffleButton.addEventListener("click", () => resetStrokeOrder(true));
-elements.duration.addEventListener("input", () => {
-  syncTimeLimits();
-  syncIntervalLimit();
-  saveSettings();
-  updateUI();
-  render();
+elements.duration.addEventListener("input", rebuildAnimation);
+elements.strokesPerStep.addEventListener("input", rebuildAnimation);
+elements.stepInterval.addEventListener("input", rebuildAnimation);
+[elements.displayMode, elements.revealStyle].forEach((control) => {
+  control.addEventListener("change", () => {
+    saveSettings();
+    updateUI();
+    render();
+  });
 });
-elements.strokeInterval.addEventListener("input", () => {
-  saveSettings();
-  updateUI();
-  render();
-});
-elements.easing.addEventListener("change", () => {
-  saveSettings();
-  render();
-  updateUI();
-});
+elements.shuffleButton.addEventListener("click", () => randomizeOrder(true));
+elements.autoShuffle.addEventListener("change", saveSettings);
 elements.guideOpacity.addEventListener("input", () => {
   saveSettings();
   updateUI();
@@ -807,12 +709,9 @@ window.addEventListener("keydown", (event) => {
 });
 
 (async function init() {
-  const settings = restoreSettings();
+  restoreSettings();
   resizeOutputCanvas();
-  syncTimeLimits();
-  syncIntervalLimit();
-  MotionStorage.restoreControl(elements.imageTime, settings?.imageTime);
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  syncTimingLimits();
   updateUI();
   render();
   await loadStrokeData(state.character);

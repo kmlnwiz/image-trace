@@ -13,18 +13,23 @@
         <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
         <span>Motion Lab</span>
       </a>
-      <span class="header-note">Browser animation tools</span>
+      <span class="header-note">Browser creative tools</span>
     </header>
 
     <main class="home-main">
       <div class="home-heading">
         <p>TOOLS</p>
-        <h1>アニメーションツール</h1>
-        <span>素材を読み込み、動きを調整して、そのまま動画に書き出せます。</span>
+        <h1>クリエイティブツール</h1>
+        <span>素材を読み込み、ブラウザだけで加工して、画像や動画に書き出せます。</span>
       </div>
 
-      <section class="tool-grid" aria-label="ツール一覧">
-        <a class="tool-card outline-card" href="./outline.html">
+      <section class="tool-grid categorized-grid" aria-label="系統別ツール一覧">
+        <div id="imageTools" class="tool-category-heading image-category-heading">
+          <span>IMAGE</span>
+          <h2>画像・輪郭</h2>
+          <p>画像素材の形や色を加工するツール</p>
+        </div>
+        <a class="tool-card outline-card" href="./outline.html" aria-describedby="imageTools">
           <div class="tool-preview outline-preview" aria-hidden="true">
             <div class="preview-toolbar"><span></span><span></span><span></span></div>
             <div class="outline-stage">
@@ -43,7 +48,12 @@
           </div>
         </a>
 
-        <a class="tool-card dial-card" href="./text-dial.html">
+        <div id="typeTools" class="tool-category-heading type-category-heading">
+          <span>TYPE</span>
+          <h2>文字・タイポグラフィ</h2>
+          <p>文字列の動きと見せ方を作るツール</p>
+        </div>
+        <a class="tool-card dial-card" href="./text-dial.html" aria-describedby="typeTools">
           <div class="tool-preview dial-preview" aria-hidden="true">
             <div class="preview-toolbar"><span></span><span></span><span></span></div>
             <div class="dial-stage">
@@ -56,7 +66,7 @@
             <div class="preview-timeline dial-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">02</span>
+            <span class="tool-number">03</span>
             <div>
               <h2>Dial Type</h2>
               <p>文字をダイヤル錠のように並べ、前後の文字から目的の文字へ戻します。</p>
@@ -65,22 +75,99 @@
           </div>
         </a>
 
-        <a class="tool-card kanji-card" href="./reverse-kanji.html">
+        <div id="kanjiTools" class="tool-category-heading kanji-category-heading">
+          <span>KANJI</span>
+          <h2>漢字・画</h2>
+          <p>漢字の画順や組み合わせを動かすツール</p>
+        </div>
+        <a class="tool-card kanji-card" href="./reverse-kanji.html" aria-describedby="kanjiTools">
           <div class="tool-preview kanji-preview" aria-hidden="true">
             <div class="preview-toolbar"><span></span><span></span><span></span></div>
             <div class="kanji-stage">
               <span class="kanji-guide">逆</span>
               <span class="kanji-ink">逆</span>
               <i class="kanji-brush-tip"></i>
-              <span class="reverse-label">⑨ → ①</span>
+              <span class="reverse-label">普通 · ランダム · 逆</span>
             </div>
             <div class="preview-timeline kanji-line"><i></i></div>
           </div>
           <div class="tool-copy">
-            <span class="tool-number">03</span>
+            <span class="tool-number">05</span>
             <div>
-              <h2>Reverse Kanji</h2>
-              <p>1文字の画順と筆の向きを反転し、終点から始点へ書きます。</p>
+              <h2>Kanji Writer</h2>
+              <p>漢字を普通・ランダム・逆の3つの書き方でアニメーションします。</p>
+            </div>
+            <span class="launch-mark" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <a class="tool-card color-card" href="./color-focus.html" aria-describedby="imageTools">
+          <div class="tool-preview color-preview" aria-hidden="true">
+            <div class="preview-toolbar"><span></span><span></span><span></span></div>
+            <div class="color-stage">
+              <div class="color-scene">
+                <i class="color-sun"></i>
+                <i class="color-mountain color-mountain-back"></i>
+                <i class="color-mountain color-mountain-front"></i>
+                <i class="color-field"></i>
+                <i class="color-stem"></i>
+                <span class="color-flower"><i></i><i></i><i></i><i></i><i></i><b></b></span>
+              </div>
+              <div class="mini-palette">
+                <span class="is-selected"></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+            <div class="preview-timeline color-line"><i></i></div>
+          </div>
+          <div class="tool-copy">
+            <span class="tool-number">02</span>
+            <div>
+              <h2>Color Focus</h2>
+              <p>イラストを色系統ごとに分け、選択した色だけを着色して残します。</p>
+            </div>
+            <span class="launch-mark" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <a class="tool-card reel-card" href="./text-reel.html" aria-describedby="typeTools">
+          <div class="tool-preview reel-preview" aria-hidden="true">
+            <div class="preview-toolbar"><span></span><span></span><span></span></div>
+            <div class="reel-home-stage">
+              <div class="mini-reel"><span>い</span><strong>う</strong><span>え</span></div>
+              <div class="mini-reel reel-home-reverse"><span>き</span><strong>く</strong><span>け</span></div>
+              <div class="mini-reel"><span>し</span><strong>す</strong><span>せ</span></div>
+              <div class="mini-reel reel-home-reverse"><span>ち</span><strong>つ</strong><span>て</span></div>
+              <i class="reel-read-line"></i>
+            </div>
+            <div class="preview-timeline reel-line"><i></i></div>
+          </div>
+          <div class="tool-copy">
+            <span class="tool-number">04</span>
+            <div>
+              <h2>Text Reel</h2>
+              <p>文字列を縦方向へループ回転し、列ごとに指定した文字で停止させます。</p>
+            </div>
+            <span class="launch-mark" aria-hidden="true">→</span>
+          </div>
+        </a>
+
+        <a class="tool-card random-card" href="./random-kanji.html" aria-describedby="kanjiTools">
+          <div class="tool-preview random-preview" aria-hidden="true">
+            <div class="preview-toolbar"><span></span><span></span><span></span></div>
+            <div class="random-stage">
+              <span class="random-guide">舞</span>
+              <span class="random-layer random-layer-one">舞</span>
+              <span class="random-layer random-layer-two">舞</span>
+              <div class="random-order"><i>⑧</i><i>③</i><i>⑫</i><i>①</i></div>
+              <span class="random-label">RANDOM · 2画ずつ</span>
+            </div>
+            <div class="preview-timeline random-line"><i></i></div>
+          </div>
+          <div class="tool-copy">
+            <span class="tool-number">06</span>
+            <div>
+              <h2>Random Kanji</h2>
+              <p>漢字を画ごとに分解し、ランダムな順番で1画または数画ずつ表示します。</p>
             </div>
             <span class="launch-mark" aria-hidden="true">→</span>
           </div>
@@ -89,7 +176,7 @@
     </main>
 
     <footer class="home-footer">
-      <span>LOCAL PROCESSING</span>
+      <span>SHIKIMEL</span>
       <span>1600 × 1000 / WEBM / PNG</span>
     </footer>
   </body>

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Color Focus</title>
+    <link rel="stylesheet" href="color-focus.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand-block" href="./index.html" aria-label="ホームへ戻る">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div>
+          <h1>Color Focus</h1>
+          <p>選んだ色系統だけを着色</p>
+        </div>
+      </a>
+      <div class="header-actions">
+        <button id="sampleButton" class="button button-secondary" type="button">サンプル</button>
+        <label class="button button-primary" for="fileInput">
+          <span aria-hidden="true">↑</span>
+          画像を開く
+        </label>
+        <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="side-panel color-panel" aria-label="色系統の選択">
+        <section class="panel-section image-section">
+          <div class="section-heading">
+            <h2>画像</h2>
+            <output id="imageDimensions" class="meta-value">--</output>
+          </div>
+          <button id="dropZone" class="file-summary" type="button">
+            <span id="fileThumbnail" class="file-thumbnail" aria-hidden="true"><span>IMG</span></span>
+            <span class="file-copy">
+              <strong id="fileName">画像を選択</strong>
+              <span id="fileMeta">PNG / JPG / WebP / GIF</span>
+            </span>
+            <span class="file-arrow" aria-hidden="true">＋</span>
+          </button>
+          <div id="imageStatus" class="status-row" role="status">
+            <span class="status-dot"></span>
+            <span>サンプルを表示中</span>
+          </div>
+        </section>
+
+        <section class="panel-section family-section">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">COLOR FAMILY</span>
+              <h2>残す色系統</h2>
+            </div>
+            <button id="originalButton" class="text-button" type="button">元画像</button>
+          </div>
+          <p class="section-help">色を1つ選ぶと、それ以外がモノクロになります。</p>
+          <div id="familyGrid" class="family-grid" role="radiogroup" aria-label="残す色系統">
+            <button class="family-button is-active" type="button" role="radio" aria-checked="true" data-family="red">
+              <span class="family-swatch swatch-red"></span><span>赤</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="orange">
+              <span class="family-swatch swatch-orange"></span><span>橙</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="yellow">
+              <span class="family-swatch swatch-yellow"></span><span>黄</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="green">
+              <span class="family-swatch swatch-green"></span><span>緑</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="cyan">
+              <span class="family-swatch swatch-cyan"></span><span>青緑</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="blue">
+              <span class="family-swatch swatch-blue"></span><span>青</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="purple">
+              <span class="family-swatch swatch-purple"></span><span>紫</span><output>--</output>
+            </button>
+            <button class="family-button" type="button" role="radio" aria-checked="false" data-family="pink">
+              <span class="family-swatch swatch-pink"></span><span>桃</span><output>--</output>
+            </button>
+            <button class="family-button family-button-neutral" type="button" role="radio" aria-checked="false" data-family="neutral">
+              <span class="family-swatch swatch-neutral"></span><span>白黒</span><output>--</output>
+            </button>
+          </div>
+          <p class="pick-hint"><span aria-hidden="true">⌖</span> プレビュー上の色をクリックして選択できます</p>
+        </section>
+      </aside>
+
+      <section class="stage-panel" aria-label="色分解プレビュー">
+        <div class="stage-toolbar">
+          <div>
+            <strong>プレビュー</strong>
+            <span id="previewMeta">選択色以外をモノクロ表示</span>
+          </div>
+          <div class="toolbar-actions">
+            <button id="compareButton" class="compare-button" type="button" aria-pressed="false">
+              <span class="compare-icon" aria-hidden="true"></span>
+              元画像と比較
+            </button>
+          </div>
+        </div>
+
+        <div id="canvasShell" class="canvas-shell">
+          <div class="canvas-frame">
+            <canvas id="previewCanvas" width="1200" height="800" aria-label="選択した色系統だけを着色したプレビュー"></canvas>
+            <div id="processingOverlay" class="processing-overlay" hidden>
+              <span class="spinner" aria-hidden="true"></span>
+              <strong>色を解析中</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-footer">
+          <div class="selected-summary">
+            <span id="selectedSwatch" class="selected-swatch swatch-red"></span>
+            <span>選択中</span>
+            <strong id="selectedName">赤系</strong>
+          </div>
+          <div class="legend" aria-label="表示の凡例">
+            <span><i class="legend-color"></i>選択色</span>
+            <span id="nonSelectedLegend"><i id="otherLegendMark" class="legend-gray"></i><span id="otherLegendLabel">その他</span></span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel settings-panel" aria-label="判定と出力の設定">
+        <section class="panel-section">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">TUNING</span>
+              <h2>色の判定</h2>
+            </div>
+            <button id="resetButton" class="text-button" type="button">リセット</button>
+          </div>
+
+          <div class="mode-field">
+            <span>非選択部分</span>
+            <div class="mode-switch" role="radiogroup" aria-label="非選択部分の表示方法">
+              <button class="mode-button is-active" type="button" role="radio" aria-checked="true" data-output-mode="grayscale">モノクロ</button>
+              <button class="mode-button" type="button" role="radio" aria-checked="false" data-output-mode="transparent">透明</button>
+            </div>
+          </div>
+
+          <label class="field-block" for="saturationThreshold">
+            <span class="field-row"><span>白黒の判定</span><output id="saturationValue">18%</output></span>
+            <input id="saturationThreshold" class="range" type="range" min="0" max="60" step="1" value="18" />
+            <small>彩度がこの値より低い部分を白黒系に分類</small>
+          </label>
+
+          <label class="field-block" for="hueExpansion">
+            <span class="field-row"><span>色域の広さ</span><output id="hueExpansionValue">標準</output></span>
+            <input id="hueExpansion" class="range" type="range" min="-12" max="24" step="1" value="0" />
+            <small>隣り合う色を含める範囲</small>
+          </label>
+
+          <label class="field-block" for="edgeSoftness">
+            <span class="field-row"><span>境界のなじみ</span><output id="edgeSoftnessValue">8°</output></span>
+            <input id="edgeSoftness" class="range" type="range" min="0" max="24" step="1" value="8" />
+            <small>色域の境界を自然になじませます</small>
+          </label>
+
+          <label class="field-block" for="colorStrength">
+            <span class="field-row"><span>選択色の彩度</span><output id="colorStrengthValue">100%</output></span>
+            <input id="colorStrength" class="range" type="range" min="40" max="160" step="1" value="100" />
+            <small>残した色の鮮やかさ</small>
+          </label>
+        </section>
+
+        <section class="panel-section output-section">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">EXPORT</span>
+              <h2>出力</h2>
+            </div>
+            <span class="format-badge">PNG</span>
+          </div>
+          <dl class="export-summary">
+            <div><dt>サイズ</dt><dd id="exportDimensions">--</dd></div>
+            <div><dt>非選択部分</dt><dd id="outputModeSummary">モノクロ</dd></div>
+            <div><dt>処理</dt><dd>ブラウザ内</dd></div>
+          </dl>
+          <button id="exportButton" class="button button-export button-wide" type="button">
+            <span aria-hidden="true">↓</span>
+            PNGを書き出す
+          </button>
+          <p class="privacy-note"><span aria-hidden="true">●</span> 画像は外部へ送信されません</p>
+        </section>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="motion-storage.js"></script>
+    <script src="color-focus.js"></script>
+  </body>
+</html>

@@ -4,20 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f6f7" />
-    <title>Kanji Writer</title>
-    <link rel="stylesheet" href="reverse-kanji.css" />
+    <title>Random Kanji</title>
+    <link rel="stylesheet" href="random-kanji.css" />
   </head>
   <body>
     <header class="kanji-header">
       <a class="kanji-brand" href="./index.html" aria-label="ホームへ戻る">
-        <span class="kanji-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="kanji-brand-mark random-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <div>
-          <h1>Kanji Writer</h1>
-          <p>書き順アニメーション</p>
+          <h1>Random Kanji</h1>
+          <p>ランダム画アニメーション</p>
         </div>
       </a>
       <nav class="kanji-nav" aria-label="ツール">
-        <a href="./random-kanji.html">Random Kanji</a>
+        <a href="./reverse-kanji.html">Kanji Writer</a>
         <a href="./outline.html">Outline Motion</a>
         <a href="./text-dial.html">Dial Type</a>
         <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
@@ -25,72 +25,86 @@
     </header>
 
     <main class="kanji-workspace">
-      <aside class="kanji-controls" aria-label="書き順設定">
+      <aside class="kanji-controls" aria-label="ランダム画設定">
         <section class="control-section">
           <div class="section-heading">
             <h2>漢字</h2>
             <output>1文字</output>
           </div>
-          <input id="characterInput" class="character-input" type="text" value="逆" maxlength="2" autocomplete="off" spellcheck="false" aria-describedby="characterHint" />
+          <input id="characterInput" class="character-input" type="text" value="舞" maxlength="2" autocomplete="off" spellcheck="false" aria-describedby="characterHint" />
           <p id="characterHint" class="field-hint">日本式の書き順データがある漢字に対応します。</p>
           <div id="dataStatus" class="data-status" role="status" aria-live="polite">
             <span class="status-dot"></span>
-            <span>書き順を読み込み中</span>
+            <span>画データを読み込み中</span>
           </div>
         </section>
 
         <section class="control-section">
           <div class="section-heading">
-            <h2>書き方</h2>
+            <h2>ランダム表示</h2>
             <output id="strokeCount">— 画</output>
           </div>
-          <div class="field-row select-row order-mode-row">
-            <label for="strokeOrderMode">画順モード</label>
-            <select id="strokeOrderMode">
-              <option value="normal" selected>普通</option>
-              <option value="random">ランダム</option>
-              <option value="reverse">逆</option>
-            </select>
+          <div class="direction-summary random-summary" aria-label="アニメーション概要">
+            <div><span>画の順序</span><strong>巡回ごとにランダム</strong></div>
+            <div><span>巡回</span><strong id="durationSummary">— 巡</strong></div>
           </div>
-          <div class="direction-summary" aria-label="描画方向">
-            <div><span>画の順序</span><strong id="orderSummary">最初 → 最後</strong></div>
-            <div><span>画の向き</span><strong id="directionSummary">始点 → 終点</strong></div>
-          </div>
-          <button id="orderShuffleButton" class="button button-secondary order-shuffle-button" type="button" hidden><span aria-hidden="true">↝</span>画順をシャッフル</button>
-          <label class="field-row compact-field" for="duration">
-            <span>全体の時間</span>
-            <output id="durationValue">4.0 秒</output>
+
+          <label class="field-row" for="duration">
+            <span>全体時間</span>
+            <output id="durationValue">10.0 秒</output>
           </label>
-          <input id="duration" class="range" type="range" min="0.5" max="60" step="0.1" value="4" />
-          <label class="field-row" for="strokeInterval">
-            <span>画のインターバル</span>
-            <output id="strokeIntervalValue">0.08 秒</output>
+          <input id="duration" class="range" type="range" min="1" max="60" step="0.5" value="10" />
+
+          <label class="field-row" for="strokesPerStep">
+            <span>1回に表示</span>
+            <output id="strokesPerStepValue">1 画</output>
           </label>
-          <input id="strokeInterval" class="range" type="range" min="0" max="5" step="0.01" value="0.08" />
+          <input id="strokesPerStep" class="range" type="range" min="1" max="64" step="1" value="1" />
+
+          <label class="field-row" for="stepInterval">
+            <span>切り替え間隔</span>
+            <output id="stepIntervalValue">1.0 秒</output>
+          </label>
+          <input id="stepInterval" class="range" type="range" min="0.1" max="60" step="0.1" value="1" />
+          <p class="field-hint timing-hint">全体時間内で巡回し、2巡目以降も順番と組み合わせを再抽選します。</p>
+
           <div class="field-row select-row">
-            <label for="easing">筆の動き</label>
-            <select id="easing">
-              <option value="linear" selected>一定</option>
-              <option value="easeIn">ゆっくり開始</option>
-              <option value="easeOut">ゆっくり停止</option>
-              <option value="easeInOut">なめらか</option>
+            <label for="displayMode">表示の重ね方</label>
+            <select id="displayMode">
+              <option value="cumulative" selected>積み上げる</option>
+              <option value="replace">入れ替える</option>
             </select>
+          </div>
+          <div class="field-row select-row">
+            <label for="revealStyle">切り替え方</label>
+            <select id="revealStyle">
+              <option value="fade" selected>フェード</option>
+              <option value="instant">瞬時</option>
+            </select>
+          </div>
+
+          <button id="shuffleButton" class="button button-secondary shuffle-button" type="button"><span aria-hidden="true">↝</span>順番をシャッフル</button>
+          <label class="check-row" for="autoShuffle">
+            <input id="autoShuffle" type="checkbox" checked />
+            <span>完了後の再生で全巡を再シャッフル</span>
+          </label>
+
+          <div class="sequence-block">
+            <span>表示順</span>
+            <div id="sequencePreview" class="sequence-preview" aria-label="ランダムな表示順"></div>
           </div>
         </section>
 
         <section class="control-section">
-          <div class="section-heading">
-            <h2>見た目</h2>
-          </div>
-          <p class="dataset-note">日本語用の正方向データを使い、選択したモードに合わせて画順と運筆方向を切り替えます。</p>
+          <div class="section-heading"><h2>見た目</h2></div>
           <label class="field-row" for="guideOpacity">
-            <span>下書き</span>
-            <output id="guideOpacityValue">8%</output>
+            <span>全体の下書き</span>
+            <output id="guideOpacityValue">6%</output>
           </label>
-          <input id="guideOpacity" class="range" type="range" min="0" max="40" step="1" value="8" />
+          <input id="guideOpacity" class="range" type="range" min="0" max="40" step="1" value="6" />
           <div class="field-row color-row">
             <label for="inkColor">文字</label>
-            <span class="color-control"><input id="inkColor" type="color" value="#172128" /><output>#172128</output></span>
+            <span class="color-control"><input id="inkColor" type="color" value="#173f4a" /><output>#173F4A</output></span>
           </div>
           <div class="field-row color-row">
             <label for="backgroundColor">背景</label>
@@ -105,9 +119,9 @@
           </dl>
           <label class="field-row" for="imageTime">
             <span>画像の時刻</span>
-            <output id="imageTimeValue">2.0 秒</output>
+            <output id="imageTimeValue">1.0 秒</output>
           </label>
-          <input id="imageTime" class="range" type="range" min="0" max="4" step="0.1" value="2" />
+          <input id="imageTime" class="range" type="range" min="0" max="60" step="0.1" value="1" />
           <button id="imageExportButton" class="button button-secondary export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>
           <button id="exportButton" class="button button-export" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button>
           <div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
@@ -115,7 +129,7 @@
         </section>
       </aside>
 
-      <section class="kanji-stage-panel" aria-label="書き順プレビュー">
+      <section class="kanji-stage-panel" aria-label="ランダム画プレビュー">
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
@@ -125,7 +139,7 @@
         </div>
 
         <div class="canvas-shell">
-          <canvas id="kanjiCanvas" width="800" height="800" aria-label="漢字の書き順アニメーションのプレビュー"></canvas>
+          <canvas id="kanjiCanvas" width="800" height="800" aria-label="漢字の画をランダムに表示するアニメーションのプレビュー"></canvas>
           <div id="canvasMessage" class="canvas-message" hidden></div>
         </div>
 
@@ -134,7 +148,7 @@
           <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
           <div class="timeline-block">
             <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
-            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:04.0</output></div>
+            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:00.0</output></div>
           </div>
           <label class="speed-control" for="previewSpeed"><span>速度</span>
             <select id="previewSpeed">
@@ -151,6 +165,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
-    <script src="reverse-kanji.js"></script>
+    <script src="random-kanji.js"></script>
   </body>
 </html>
