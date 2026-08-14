@@ -37,7 +37,7 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 `#playButton` `#restartButton` `#timeline` `#currentTime` `#totalTime` `#previewSpeed` `#imageTime` `#imageTimeValue` `#imageExportButton` `#exportButton` `#exportProgress` `#exportProgressBar` `#toast` `#outputSize`
 
-ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。WebM 書き出しは `canvas.captureStream(60)` + `MediaRecorder`（VP9 → VP8 → webm の順にフォールバック）で、プレビューと同じ `render` を requestAnimationFrame で回して録画するため、**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
+ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。WebM 書き出しは `canvas.captureStream(0)` + `videoTrack.requestFrame()` の手動フレーム駆動 + `MediaRecorder`（VP9 → VP8 → webm の順にフォールバック）。プレビューと同じ `render` を requestAnimationFrame で回しつつ、playhead は経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決めて 1 枚ずつ送出するため尺が縮まずフレームも欠落しない（`requestFrame` 非対応環境は `captureStream(60)` の自動サンプリングへフォールバック）。**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
 
 ### 設定の永続化（2層）
 

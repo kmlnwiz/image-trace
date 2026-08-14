@@ -1,7 +1,8 @@
 "use strict";
 
 (function exposeMotionToolkit() {
-  const FRAME_MS = 1000 / 60;
+  const EXPORT_FPS = 60;
+  const FRAME_MS = 1000 / EXPORT_FPS;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -264,7 +265,16 @@
         showToast("このブラウザはWebM書き出しに対応していません");
         return;
       }
-      const stream = canvas.captureStream(60);
+      // A 0 fps stream only emits frames we push, so every rendered frame lands in the file.
+      let stream = canvas.captureStream(0);
+      let videoTrack = stream.getVideoTracks()[0];
+      const manualFrames = typeof videoTrack?.requestFrame === "function";
+      if (!manualFrames) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = canvas.captureStream(EXPORT_FPS);
+        videoTrack = stream.getVideoTracks()[0];
+      }
+      const pushFrame = manualFrames ? () => videoTrack.requestFrame() : () => {};
       const mimeType = supportedMimeType();
       const recorder = new MediaRecorder(stream, {
         ...(mimeType ? { mimeType } : {}),
@@ -280,26 +290,34 @@
       if (elements.videoExport?.lastChild) elements.videoExport.lastChild.textContent = " 書き出し中";
       if (elements.progress) elements.progress.hidden = false;
       if (elements.progressBar) elements.progressBar.style.width = "0%";
-      const durationMs = duration() * 1000;
+      // Frames are counted, not sampled from the clock, so the clip always holds the requested length.
+      const totalFrames = Math.max(2, Math.round(duration() * EXPORT_FPS));
       const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
       // Draw the first frame before recording so the stream starts from the head of the animation.
       state.playhead = 0;
       render();
       recorder.start(250);
-      const startedAt = performance.now();
       await new Promise((resolve) => {
+        let startedAt = 0;
+        let frame = 0;
         function recordFrame(now) {
-          const elapsed = now - startedAt;
-          state.playhead = clamp(elapsed / durationMs, 0, 1);
-          render();
-          update();
-          if (elements.progressBar) elements.progressBar.style.width = `${state.playhead * 100}%`;
-          // Keep drawing past the end so the last frame carries its own display time.
-          if (elapsed < durationMs + FRAME_MS) requestAnimationFrame(recordFrame);
-          else window.setTimeout(resolve, 100);
+          if (!startedAt) startedAt = now;
+          // Half a frame of slack keeps a jittery rAF from skipping a slot and halving the frame rate.
+          if (now >= startedAt + frame * FRAME_MS - FRAME_MS / 2) {
+            state.playhead = frame / (totalFrames - 1);
+            render();
+            update();
+            pushFrame();
+            if (elements.progressBar) elements.progressBar.style.width = `${state.playhead * 100}%`;
+            frame += 1;
+          }
+          if (frame < totalFrames) requestAnimationFrame(recordFrame);
+          // Hold the last frame for its own display time before closing the file.
+          else window.setTimeout(resolve, FRAME_MS);
         }
         requestAnimationFrame(recordFrame);
       });
+      pushFrame();
       recorder.stop();
       await finished;
       stream.getTracks().forEach((track) => track.stop());
