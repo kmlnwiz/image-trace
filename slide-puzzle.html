@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#f4f6f7" /><title>Slide Puzzle</title><link rel="stylesheet" href="studio-tools.css" /><link rel="stylesheet" href="tool-ui.css" /></head>
+  <body class="tool-page slide-puzzle" data-tool-key="slide-puzzle">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">⇄</span><div><h1>Slide Puzzle</h1><p>15パズルのようにバラバラから元へ戻す</p></div></a>
+      <div class="header-actions"><label class="button button-primary" for="fileInput"><span aria-hidden="true">↑</span>画像を開く</label><input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden /></div>
+    </header>
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="題材と盤面の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>題材</h2><span id="sourceMeta" class="meta-value">文字</span></div>
+          <div class="field-row select-row"><label for="sourceMode">種類</label><select id="sourceMode"><option value="text" selected>文字1字</option><option value="image">画像</option></select></div>
+          <div id="textSource">
+            <input id="textInput" class="text-input character-input" type="text" value="謎" maxlength="8" autocomplete="off" spellcheck="false" aria-label="盤面にする文字" />
+            <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
+            <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
+            <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#17242b" /><output>#17242B</output></span></div>
+          </div>
+          <div id="imageSource" hidden>
+            <button id="fileSummary" class="file-summary image-picker" type="button" aria-label="画像を選択、またはここへドロップ"><span class="file-thumbnail" aria-hidden="true"><span>IMG</span></span><span class="file-copy"><strong id="fileName">画像を選択</strong><span id="fileMeta">未選択</span></span><span class="file-arrow" aria-hidden="true">＋</span></button>
+            <div class="field-row select-row"><label for="imageFit">配置</label><select id="imageFit"><option value="cover" selected>全面に合わせる</option><option value="contain">全体を入れる</option></select></div>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>マス</h2><output id="gridArea" class="meta-value">4 × 4</output></div>
+          <label class="field-row" for="gridColumns"><span>横</span><output id="gridColumnsValue">4 マス</output></label><input id="gridColumns" class="range" type="range" min="2" max="8" step="1" value="4" />
+          <label class="field-row" for="gridRows"><span>縦</span><output id="gridRowsValue">4 マス</output></label><input id="gridRows" class="range" type="range" min="2" max="8" step="1" value="4" />
+          <label class="field-row" for="tileGap"><span>すき間</span><output id="tileGapValue">4 px</output></label><input id="tileGap" class="range" type="range" min="0" max="30" step="1" value="4" />
+          <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">0 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="40" step="1" value="0" />
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
+          <div class="field-row color-row"><label for="holeColor">欠けたマス</label><span class="color-control"><input id="holeColor" type="color" value="#e8ecee" /><output>#E8ECEE</output></span></div>
+          <label class="check-row" for="showNumbers"><input id="showNumbers" type="checkbox" /><span>マス番号を表示</span></label>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>欠けている箇所</h2><output id="holeLabel" class="meta-value">右下</output></div>
+          <div id="holePicker" class="order-picker-grid" aria-label="欠けているマスを選択"></div>
+          <p class="field-hint">クリックしたマスが最後まで空きます。完成時にそのマスだけが欠けた状態になります。</p>
+        </section>
+      </aside>
+
+      <section class="stage-panel tool-stage" aria-label="スライドパズルプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 40 手</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="バラバラのマスがスライドして元の絵へ戻るアニメーション"></canvas><div id="canvasMessage" class="canvas-message" hidden></div></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:08.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>動き</h2><output id="requiredTime" class="meta-value">必要 8.2 秒</output></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">8.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="8" />
+          <label class="field-row" for="moveCount"><span>移動回数</span><output id="moveCountValue">40 手</output></label><input id="moveCount" class="range" type="range" min="1" max="200" step="1" value="40" />
+          <label class="field-row" for="moveDuration"><span>1手の時間</span><output id="moveDurationValue">0.16 秒 / 10f</output></label><input id="moveDuration" class="range" type="range" min="0.02" max="3" step="0.01" value="0.16" />
+          <label class="field-row" for="moveInterval"><span>手の間隔</span><output id="moveIntervalValue">0.20 秒 / 12f</output></label><input id="moveInterval" class="range" type="range" min="0.02" max="5" step="0.01" value="0.2" />
+          <p class="field-hint">間隔は1手が動き始めてから次が動き始めるまでの時間です。全体時間とは独立していて、必要時間より全体時間が長ければ完成した状態で止まります。</p>
+          <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="linear">一定</option><option value="backOut">少し弾む</option></select></div>
+          <button id="matchDurationButton" class="button button-secondary" type="button">全体時間を必要時間に合わせる</button>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>バラし方を再抽選</button>
+        </section>
+
+        <section class="control-section export-section"><div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div><dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="400">400 × 400</option><option value="800">800 × 800</option><option value="1600x900">1600 × 900</option><option value="1600x1000" selected>1600 × 1000</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl><label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">4.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="8" step="0.1" value="4" /><button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div></section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="slide-puzzle.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>
