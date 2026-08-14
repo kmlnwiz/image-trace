@@ -10,6 +10,11 @@ body.panel-reveal {
   --tool-accent-soft: #faebdf;
 }
 
+body.memory-flip {
+  --tool-accent: #8c3f8a;
+  --tool-accent-soft: #f5e6f4;
+}
+
 .typography-input {
   min-height: 104px;
   resize: vertical;

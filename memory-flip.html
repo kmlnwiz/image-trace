@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Memory Flip</title>
+    <link rel="stylesheet" href="typography-tools.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
+  </head>
+  <body class="tool-page typography-tools memory-flip" data-tool-key="memory-flip">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">神</span><div><h1>Memory Flip</h1><p>神経衰弱のようにめくって揃える</p></div></a>
+    </header>
+
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="文字とパネルの設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>文字</h2><output id="characterCount" class="meta-value">0 / 16</output></div>
+          <textarea id="textInput" class="text-area typography-input" rows="2" maxlength="64" spellcheck="false">あいうえおかきくけこ</textarea>
+          <p class="field-hint">1文字ずつに分けて、それぞれ2枚のパネルへ配ります。枚数が足りないときは先頭から繰り返します。</p>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>配置とめくり方を再抽選</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>盤面</h2><output id="boardSummary" class="meta-value">4 × 4 · 8組</output></div>
+          <label class="field-row" for="gridColumns"><span>横</span><output id="gridColumnsValue">4 枚</output></label><input id="gridColumns" class="range" type="range" min="2" max="8" step="1" value="4" />
+          <label class="field-row" for="gridRows"><span>縦</span><output id="gridRowsValue">4 枚</output></label><input id="gridRows" class="range" type="range" min="1" max="4" step="1" value="4" />
+          <p class="field-hint">最大は8×4です。枚数が奇数になる組み合わせでは、末尾の1枚を使いません。</p>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>パネル</h2></div>
+          <div class="field-row select-row"><label for="backMode">裏面</label><select id="backMode"><option value="question" selected>？を表示</option><option value="blank">無地</option></select></div>
+          <label class="field-row" for="panelGap"><span>間隔</span><output id="panelGapValue">12 px</output></label><input id="panelGap" class="range" type="range" min="0" max="36" step="1" value="12" />
+          <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">0 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="28" step="1" value="0" />
+          <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
+          <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
+          <label class="field-row" for="fontSize"><span>文字サイズ</span><output id="fontSizeValue">72 px</output></label><input id="fontSize" class="range" type="range" min="24" max="150" step="2" value="72" />
+          <div class="field-row color-row"><label for="panelColor">パネル</label><span class="color-control"><input id="panelColor" type="color" value="#f2ede3" /><output>#F2EDE3</output></span></div>
+          <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#17242b" /><output>#17242B</output></span></div>
+          <div class="field-row color-row"><label for="settledColor">確定</label><span class="color-control"><input id="settledColor" type="color" value="#E0041D" /><output>#E0041D</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
+        </section>
+      </aside>
+
+      <section class="stage-panel tool-stage" aria-label="神経衰弱プレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 8 組 確定</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="パネルがめくられ、同じ文字が揃うと確定していくアニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:12.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="めくり方と出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>めくり方</h2><output id="requiredTime" class="meta-value">必要 12.0 秒</output></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">12.0 秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="12" />
+          <label class="field-row" for="tickInterval"><span>めくる間隔</span><output id="tickIntervalValue">0.60 秒 / 36f</output></label><input id="tickInterval" class="range" type="range" min="0.1" max="5" step="0.05" value="0.6" />
+          <label class="field-row" for="flipDuration"><span>1枚の反転時間</span><output id="flipDurationValue">0.35 秒 / 21f</output></label><input id="flipDuration" class="range" type="range" min="0.1" max="3" step="0.05" value="0.35" />
+          <label class="field-row" for="openLimit"><span>同時に開く枚数</span><output id="openLimitValue">3 枚</output></label><input id="openLimit" class="range" type="range" min="1" max="8" step="1" value="3" />
+          <label class="field-row" for="matchChance"><span>そろう頻度</span><output id="matchChanceValue">38%</output></label><input id="matchChance" class="range" type="range" min="5" max="100" step="1" value="38" />
+          <label class="field-row" for="closeChance"><span>戻す頻度</span><output id="closeChanceValue">45%</output></label><input id="closeChance" class="range" type="range" min="0" max="100" step="1" value="45" />
+          <p class="field-hint">同じ文字が2枚同時に表になるのは、その組が揃った瞬間だけです。揃った組は以降めくられず、確定色で残ります。</p>
+          <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="linear">一定</option></select></div>
+          <button id="matchDurationButton" class="button button-secondary" type="button">全体時間を必要時間に合わせる</button>
+        </section>
+
+        <section class="control-section export-section">
+          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
+          <dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="800">800 × 800</option><option value="1600x900">1600 × 900</option><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl>
+          <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">6.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="12" step="0.1" value="6" />
+          <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
+        </section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script><script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="memory-flip.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

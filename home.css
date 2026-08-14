@@ -706,6 +706,37 @@ a {
 
 .puzzle-line i { width: 62%; background: #f0b14e; }
 
+.memory-home-stage {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6px;
+  padding: 16px;
+  background: #1b1420;
+}
+
+.memory-home-stage i {
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  color: #1b1420;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  background: #f2ede3;
+}
+
+.memory-home-stage i.is-open {
+  background: #ffffff;
+}
+
+.memory-home-stage i.is-settled {
+  color: #ffffff;
+  background: #E0041D;
+}
+
+.memory-line i { width: 48%; background: #8c3f8a; }
+
 .flip-home-stage {
   display: flex;
   align-items: center;
