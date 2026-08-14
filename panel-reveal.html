@@ -11,7 +11,6 @@
   <body class="tool-page typography-tools panel-reveal" data-tool-key="panel-reveal">
     <header class="app-header tool-header">
       <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">表</span><div><h1>Panel Reveal</h1><p>裏面から文章を1文字ずつ戻す</p></div></a>
-      <nav class="header-nav" aria-label="ツール"><a href="./flip-panels.html">Flip Panels</a><a href="./word-conveyor.html">Word Conveyor</a><a class="home-link" href="./index.html" aria-label="ホーム">⌂</a></nav>
     </header>
 
     <main class="workspace tool-workspace tool-shell">
@@ -33,21 +32,21 @@ TYPE PANEL 1</textarea>
         <section class="control-section">
           <div class="section-heading"><h2>パネル</h2></div>
           <label class="field-row" for="panelGap"><span>間隔</span><output id="panelGapValue">12 px</output></label><input id="panelGap" class="range" type="range" min="0" max="36" step="1" value="12" />
-          <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">10 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="28" step="1" value="10" />
+          <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">0 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="28" step="1" value="0" />
           <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
           <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
           <label class="field-row" for="fontSize"><span>文字サイズ</span><output id="fontSizeValue">96 px</output></label><input id="fontSize" class="range" type="range" min="36" max="170" step="2" value="96" />
           <div class="field-row color-row"><label for="panelColor">表裏パネル</label><span class="color-control"><input id="panelColor" type="color" value="#f2ede3" /><output>#F2EDE3</output></span></div>
           <div class="field-row color-row"><label for="textColor">表裏文字</label><span class="color-control"><input id="textColor" type="color" value="#17242b" /><output>#17242B</output></span></div>
           <div class="field-row color-row"><label for="settledColor">確定表示</label><span class="color-control"><input id="settledColor" type="color" value="#D83131" /><output>#D83131</output></span></div>
-          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#101820" /><output>#101820</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
         </section>
       </aside>
 
       <section class="stage-panel tool-stage" aria-label="文字パネル反転プレビュー">
         <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">裏面 · 0パネル</span></div>
         <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="裏面の文字パネルが順番に表へ戻るアニメーション"></canvas></div>
-        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
 
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="復帰順と出力の設定">
@@ -55,17 +54,17 @@ TYPE PANEL 1</textarea>
           <div class="section-heading"><h2>表へ戻す順番</h2></div>
           <div class="field-row select-row"><label for="orderMode">順番</label><select id="orderMode"><option value="type" selected>文字種ごと</option><option value="specified">指定</option><option value="random">ランダム</option></select></div>
           <p id="orderHint" class="field-hint">文章に最初に現れた文字種から、同じ文字種のパネルをまとめて戻します。</p>
-          <div id="specifiedOrderEditor" class="reveal-order-editor" hidden>
-            <div class="timing-editor-heading"><strong>パネルを順番に選択</strong><output id="specifiedCount">0 / 0</output></div>
-            <div id="specifiedOrderGrid" class="reveal-order-grid" aria-label="表へ戻す順番を指定するパネル"></div>
-            <div class="reveal-order-actions"><button id="sequenceOrderButton" type="button">左から設定</button><button id="clearOrderButton" type="button">すべて解除</button></div>
+          <div id="specifiedOrderEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>パネルを順番に選択</strong><output id="specifiedCount">0 / 0</output></div>
+            <div id="specifiedOrderGrid" class="order-picker-grid" aria-label="表へ戻す順番を指定するパネル"></div>
+            <div class="order-picker-actions"><button id="sequenceOrderButton" type="button">左から設定</button><button id="clearOrderButton" type="button">すべて解除</button></div>
           </div>
           <button id="shuffleButton" class="button button-accent" type="button" hidden><span aria-hidden="true">↝</span>順番を再抽選</button>
         </section>
 
         <section class="control-section">
-          <div class="section-heading"><h2>反転</h2><output id="durationValue" class="meta-value">5.0 秒</output></div>
-          <label class="field-row" for="duration"><span>全体時間</span><output>最大90秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="5" />
+          <div class="section-heading"><h2>反転</h2></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue" class="meta-value">5.0 秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="5" />
           <label class="field-row" for="flipDuration"><span>1枚の反転時間</span><output id="flipDurationValue">0.8 秒</output></label><input id="flipDuration" class="range" type="range" min="0.2" max="3" step="0.1" value="0.8" />
           <label class="field-row" for="settleSpan"><span>開始の時間差</span><output id="settleSpanValue">78%</output></label><input id="settleSpan" class="range" type="range" min="0" max="100" step="1" value="78" />
           <div class="field-row select-row"><label for="easing">めくり方</label><select id="easing"><option value="linear">一定</option><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="backOut">少し弾む</option></select></div>
@@ -79,6 +78,7 @@ TYPE PANEL 1</textarea>
       </aside>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="panel-reveal.js"></script><script src="tool-ui.js"></script>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="panel-reveal.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

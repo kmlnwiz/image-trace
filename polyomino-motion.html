@@ -11,7 +11,6 @@
   <body class="tool-page polyomino-motion" data-tool-key="polyomino-motion">
     <header class="app-header tool-header">
       <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">▦</span><div><h1>Polyomino Type</h1><p>ばらけた文字のミノを、読める盤面へ戻す</p></div></a>
-      <nav class="header-nav" aria-label="ツール"><a href="./panel-reveal.html">Panel Reveal</a><a href="./slice-motion.html">Slice Motion</a><a class="home-link" href="./index.html" aria-label="ホーム">⌂</a></nav>
     </header>
 
     <main class="workspace tool-workspace tool-shell">
@@ -45,22 +44,28 @@
           <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
           <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
           <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#172128" /><output>#172128</output></span></div>
-          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#F2EEE5" /><output>#F2EEE5</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
         </section>
       </aside>
 
       <section class="stage-panel tool-stage" aria-label="ポリオミノ組み立てプレビュー">
         <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 5 ミノ 確定</span></div>
         <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="文字の入ったポリオミノが散らばった状態から盤面へ戻るアニメーション"></canvas></div>
-        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:06.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:06.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
 
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
         <section class="control-section">
-          <div class="section-heading"><h2>戻り方</h2><output id="durationValue" class="meta-value">6.0 秒</output></div>
-          <label class="field-row" for="duration"><span>全体時間</span><output>最大90秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
+          <div class="section-heading"><h2>戻り方</h2></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue" class="meta-value">6.0 秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
           <label class="field-row" for="moveDuration"><span>1ミノの移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="6" step="0.1" value="2" />
-          <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="simultaneous">同時</option></select></div>
+          <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="specified">指定</option><option value="simultaneous">同時</option></select></div>
+          <div id="orderPickerEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>ミノを順番に選択</strong><output id="orderPickerCount">0 / 0</output></div>
+            <div id="orderPickerGrid" class="order-picker-grid" aria-label="戻る順番を指定するミノ"></div>
+            <div class="order-picker-actions"><button id="orderPickerAllButton" type="button">左上から設定</button><button id="orderPickerClearButton" type="button">すべて解除</button></div>
+            <p class="field-hint">クリックした順に戻します。未指定のミノは、その後に左上から戻ります。</p>
+          </div>
           <label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.68秒 / 41f</output></label><input id="stagger" class="range" type="range" min="0" max="20" step="0.01" value="0.68" />
           <p class="field-hint">開始間隔は全体時間と独立しています。各ミノを0秒、設定秒、設定秒×2…に戻し始め、完成後はその状態を表示します。</p>
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
@@ -84,6 +89,7 @@
       </aside>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="polyomino-motion.js"></script><script src="tool-ui.js"></script>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="motion-order.js"></script><script src="polyomino-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Motion Lab — ブラウザだけで動画（WebM）と静止画（PNG）素材を作る13種類のツール集。ビルドシステム・パッケージ管理・テスト・依存パッケージは一切なし。素の HTML / CSS / JavaScript（`"use strict"` + IIFE またはトップレベル定数）を Canvas 2D で描画している。
+Motion Lab — ブラウザだけで動画（WebM）と静止画（PNG）素材を作る15種類のツール集。ビルドシステム・パッケージ管理・テスト・依存パッケージは一切なし。素の HTML / CSS / JavaScript（`"use strict"` + IIFE またはトップレベル定数）を Canvas 2D で描画している。
 
 ## 実行
 
@@ -22,20 +22,26 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 | ファイル | 役割 |
 | --- | --- |
-| `motion-toolkit.js` | `window.MotionToolkit`。`clamp` / `lerp` / `ease` / `graphemes` / `seededRandom` / `containRect` / `outputDimensions` / `resizeOutputCanvas`、および**再生・書き出しエンジン `createPlayer`** |
+| `motion-toolkit.js` | `window.MotionToolkit`。`clamp` / `lerp` / `ease` / `graphemes` / `seededRandom` / `containRect` / `outputDimensions` / `resizeOutputCanvas` / `roundedRectPath` / `formatTime` / `parseTime`、および**再生・書き出しエンジン `createPlayer`** |
 | `motion-storage.js` | `MotionStorage.read/write/restoreControl`。localStorage の安全な読み書きと、min/max・option 検証つきのコントロール復元 |
-| `tool-ui.js` | 全ツール共通のプリセット UI（ヘッダーに3枠のセーブスロットを動的挿入）と、`tool-shell-compact` レイアウトの右パネル組み立て |
-| `tool-ui.css` | 共通の画面部品（ヘッダー・セクション・トランスポート・出力欄） |
+| `tool-nav.js` | `window.MotionTools`。全ツールのカタログと、ヘッダー右側の共通ツールスイッチャー（`mountToolNav`） |
+| `motion-fonts.js` | `MotionFonts.createFontStore(assetKey)` / `registerFontFile`。ローカルフォントの IndexedDB 保存と `FontFace` 登録 |
+| `motion-order.js` | `MotionOrder.createOrderPicker`。「指定」順モードのピッカーと順位付け |
+| `motion-controls.js` | スライダーの値表示を数値入力へ置き換え（`upgradeNumericFields`）、`.color-control` の hex 表示を自動同期（`syncColorOutputs`） |
+| `tool-ui.js` | 名前付きプリセットの保存・読込・削除、セクション単位の初期化、`tool-shell-compact` レイアウトの右パネル組み立て |
+| `tool-ui.css` | 共通の画面部品（ヘッダー・ツールスイッチャー・セクション・トランスポート・シークバー・数値入力・順番ピッカー・出力欄） |
 
 `kanji-data.js` は漢字系ツール用の Hanzi Writer Japanese Data 取得・localStorage キャッシュ（最大24文字）。
 
-読み込み順は固定：`motion-storage.js` → `motion-toolkit.js` → `<tool>.js` → `tool-ui.js`（`tool-ui.js` は必ず最後）。
+読み込み順は固定：`motion-storage.js` → `tool-nav.js` → `motion-toolkit.js` →（必要なら `motion-fonts.js` / `motion-order.js` / `kanji-data.js`）→ `<tool>.js` → `motion-controls.js` → `tool-ui.js`。**`motion-controls.js` はツール本体の後、`tool-ui.js` は必ず最後。**
 
 ### createPlayer の契約
 
 `MotionToolkit.createPlayer({ canvas, getDuration, isReady, render, onUpdate, onControlChange, getFileBase, loop })` は、**HTML 内の固定 ID を `document.querySelector` で直接拾う**。新規ツールの HTML は既存ツールの `.transport` / `.export-section` マークアップをそのまま流用すること。要求される ID：
 
 `#playButton` `#restartButton` `#timeline` `#currentTime` `#totalTime` `#previewSpeed` `#imageTime` `#imageTimeValue` `#imageExportButton` `#exportButton` `#exportProgress` `#exportProgressBar` `#toast` `#outputSize`
+
+`#currentTime` は `<output>` ではなく `<input class="time-input">` にする（`分:秒` か秒数を打つとその位置へシークする）。`#timeline` はドラッグ中 `state.isScrubbing` が立ち、再生位置による書き換えが止まる。再生中に掴んだ場合は離した時点で再生を再開する。
 
 ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。書き出しは後述の `renderWebm` に委譲する。**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
 
@@ -50,11 +56,11 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 ### 設定の永続化（2層）
 
 1. **ツール自身**: 各 `<tool>.js` の先頭で `MOTION-LAB:<tool>-settings:vN` キーを定義し、`saveSettings()` / `restoreSettings()` を持つ。`restoreSettings` は `MotionStorage.restoreControl` を使う（不正値を弾くため直接 `.value =` しない）。値を変えるコントロールには `saveSettings` を繋ぐ（`createPlayer` の `onControlChange` 経由でもよい）。
-2. **プリセット**: `tool-ui.js` が `<body data-tool-key="...">` を見て `settingsKeys` テーブルから設定キーを引き、`localStorage` の設定文字列と全コントロール値のスナップショットを3枠に保存する。読込・初期化は `location.reload()` して sessionStorage 経由で復元する。
+2. **プリセット**: `tool-ui.js` が `<body data-tool-key="...">` を見て `settingsKeys` テーブルから設定キーを引き、`localStorage` の設定文字列と全コントロール値のスナップショットを**名前付きで何件でも**保存する（キーは `motion-lab:presets:<page>:v2`、旧 v1 の3枠は初回に移行）。読込と全体初期化は `location.reload()` して sessionStorage 経由で復元する。セクション単位の初期化はリロードせず、そのセクションのコントロールを HTML の `defaultValue` / `defaultChecked` / `defaultSelected` へ戻して `input` と `change` を投げる。
 
 **新規ツールを追加したら `tool-ui.js` の `settingsKeys` にエントリを足すこと。** これを忘れるとプリセット UI がそのページで一切表示されない（`settingsKey` が undefined で早期 return する）。設定キーのスキーマを壊す変更をしたときは `:v1` → `:v2` のようにバージョンを上げる。
 
-ローカルフォント対応ツール（Dial Type / Text Reel / Flip Panels / Word Conveyor / Panel Reveal / Polyomino Type）は、フォントバイナリだけ IndexedDB（`openFontDatabase` / `readFontAsset` / `writeFontAsset` / `deleteFontAsset` の同型パターンが各ファイルに複製されている）へ保存する。外部送信はしない。
+ローカルフォント対応ツール（Dial Type / Text Reel / Flip Panels / Word Conveyor / Panel Reveal / Polyomino Type / Slide Puzzle / Memory Flip）は、フォントバイナリだけ IndexedDB へ保存する。各ツールは `MotionFonts.createFontStore(FONT_ASSET_KEY)` で `{ read, write, remove }` を作り、`MotionFonts.registerFontFile(buffer, prefix)` で `FontFace` を登録する。外部送信はしない。
 
 ### 出力サイズ
 
@@ -65,8 +71,20 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 - `outline.html` → `app.js`（Outline Motion。輪郭抽出ロジックだけ `outline-trace.js` に分離）
 - `reverse-kanji.html` / `reverse-kanji.js` → 「Kanji Writer」
 - `text-dial.*` → 「Dial Type」、`polyomino-motion.*` → 「Polyomino Type」
+- `slide-puzzle.*` → 「Slide Puzzle」、`memory-flip.*` → 「Memory Flip」（この2つはファイル名とツール名が一致する）
 
-CSS は `studio-tools.css`（Slice / Flip / Stroke Assemble / Radical）、`typography-tools.css`（Word Conveyor / Panel Reveal）を共有し、残りはツール専用。`text-reel.html` は `text-dial.css` も読む。
+CSS は `studio-tools.css`（Slice / Flip / Stroke Assemble / Radical / Slide Puzzle）、`typography-tools.css`（Word Conveyor / Panel Reveal / Memory Flip、`studio-tools.css` を `@import` している）を共有し、残りはツール専用。`text-reel.html` は `text-dial.css` も読む。ツールごとのアクセントは `body.<tool>` の `--tool-accent` / `--tool-accent-soft` で定義する。
+
+## 新しいツールを足すときのチェックリスト
+
+1. `<tool>.html` + `<tool>.js` を既存ツールのマークアップから起こす（`.transport` と `.export-section` はそのまま流用）。
+2. `tool-ui.js` の `settingsKeys` にエントリを足す。**忘れるとそのページでプリセット UI が一切出ない。**
+3. `tool-nav.js` の `TOOLS` に追加する。忘れると全ページの切替メニューに出てこない。
+4. `index.html` にカードを、`home.css` にそのプレビュー用スタイルを足す。
+5. スクリプトの読み込み順を守る（`motion-controls.js` はツール本体の後、`tool-ui.js` は最後）。
+6. 値表示の `<output>` は、対応するスライダーと同じ `<label for="...">` の中に置く。`motion-controls.js` は `#<id>Value` か `label[for=<id>] output` を探し、そこへ数値入力を差し込む。
+7. 全体時間のスライダーは `max="90"`、背景色の既定は `#FFFFFF`、角丸の既定は `0`。
+8. `README.md` に節を足す。
 
 ## コードスタイル
 

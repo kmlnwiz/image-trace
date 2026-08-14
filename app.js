@@ -286,8 +286,9 @@ function updateImageUI(hasTransparency) {
   elements.fileSummary.querySelector(".file-thumbnail").append(thumbnail);
 }
 
-function pointAtDistance(distance) {
-  const wrapped = ((distance % state.totalLength) + state.totalLength) % state.totalLength;
+// Largest cumulative index that is still behind `wrapped`, so the vertex just
+// ahead of a distance is always `result + 1`.
+function segmentIndexAt(wrapped) {
   let low = 0;
   let high = state.cumulative.length - 1;
   while (low < high - 1) {
@@ -295,6 +296,12 @@ function pointAtDistance(distance) {
     if (state.cumulative[middle] <= wrapped) low = middle;
     else high = middle;
   }
+  return low;
+}
+
+function pointAtDistance(distance) {
+  const wrapped = ((distance % state.totalLength) + state.totalLength) % state.totalLength;
+  const low = segmentIndexAt(wrapped);
   const start = state.contour[low % state.contour.length];
   const end = state.contour[(low + 1) % state.contour.length];
   const segmentLength = state.cumulative[low + 1] - state.cumulative[low] || 1;
@@ -304,34 +311,31 @@ function pointAtDistance(distance) {
 
 function traceDistanceRange(ctx, fromDistance, toDistance) {
   if (!state.totalLength || toDistance <= fromDistance) return;
-  // Stroking more than one lap produces the same pixels. Limit the range to a
-  // single lap and walk every contour vertex instead of using closePath(),
-  // which can add a straight chord when an animated range crosses its origin.
-  const limitedFrom = fromDistance;
-  const limitedTo = Math.min(toDistance, fromDistance + state.totalLength);
-  let current = limitedFrom;
-  const start = pointAtDistance(current);
+  // Stroking more than one lap produces the same pixels, so a range is capped
+  // at a single lap. The walk then steps from vertex to vertex by index and
+  // wraps with a modulo. Rebuilding lap boundaries by dividing distances used
+  // to land a hair off the boundary once the range crossed the origin, which
+  // put the vertex scan in the wrong lap: it found nothing and the frame was
+  // stroked as one straight chord instead of the outline.
+  const span = Math.min(toDistance - fromDistance, state.totalLength);
+  const count = state.contour.length;
+  const start = pointAtDistance(fromDistance);
   ctx.moveTo(start.x, start.y);
 
-  while (current < limitedTo) {
-    const wrapped = ((current % state.totalLength) + state.totalLength) % state.totalLength;
-    const nextBoundary = current + (state.totalLength - wrapped || state.totalLength);
-    const target = Math.min(nextBoundary, limitedTo);
-    const cycleStart = Math.floor(current / state.totalLength) * state.totalLength;
+  const wrapped = ((fromDistance % state.totalLength) + state.totalLength) % state.totalLength;
+  let index = segmentIndexAt(wrapped) + 1;
+  let ahead = state.cumulative[index] - wrapped;
 
-    for (let index = 1; index < state.cumulative.length; index += 1) {
-      const candidate = cycleStart + state.cumulative[index];
-      if (candidate > current + 0.001 && candidate < target - 0.001) {
-        const point = state.contour[index % state.contour.length];
-        ctx.lineTo(point.x, point.y);
-      }
-    }
-
-    const point = pointAtDistance(target);
-    ctx.lineTo(point.x, point.y);
-    current = target;
-    if (limitedTo - current < 0.001) break;
+  // A span never exceeds one lap, so the contour is visited at most once.
+  for (let step = 0; step < count && ahead < span; step += 1) {
+    const vertex = index % count;
+    ctx.lineTo(state.contour[vertex].x, state.contour[vertex].y);
+    ahead += state.cumulative[vertex + 1] - state.cumulative[vertex];
+    index = vertex + 1;
   }
+
+  const end = pointAtDistance(fromDistance + span);
+  ctx.lineTo(end.x, end.y);
 }
 
 function resizeOutputCanvas() {

@@ -20,17 +20,23 @@
           <div id="rowsControl"><label class="field-row" for="rows"><span>行数</span><output id="rowsValue">5</output></label><input id="rows" class="range" type="range" min="2" max="18" step="1" value="5" /></div>
           <label class="field-row" for="gap"><span>すき間</span><output id="gapValue">0 px</output></label><input id="gap" class="range" type="range" min="0" max="32" step="1" value="0" />
         </section>
-        <section class="control-section"><div class="section-heading"><h2>背景</h2></div><div class="field-row color-row"><label for="backgroundColor">背景色</label><span class="color-control"><input id="backgroundColor" type="color" value="#101b24" /><output>#101B24</output></span></div><label class="check-row" for="fade"><input id="fade" type="checkbox" checked /><span>移動中にフェードイン</span></label></section>
+        <section class="control-section"><div class="section-heading"><h2>背景</h2></div><div class="field-row color-row"><label for="backgroundColor">背景色</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div><label class="check-row" for="fade"><input id="fade" type="checkbox" checked /><span>移動中にフェードイン</span></label></section>
       </aside>
       <section class="stage-panel tool-stage" aria-label="スライスアニメーションプレビュー">
         <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">12枚 · 縦分割</span></div>
         <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="分割した画像が組み上がるアニメーション"></canvas><div id="canvasMessage" class="canvas-message" hidden></div></div>
-        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
         <section class="control-section"><div class="section-heading"><h2>動き</h2></div>
           <div class="field-row select-row"><label for="direction">移動方向</label><select id="direction"><option value="alternate" selected>交互</option><option value="random">ランダム</option><option value="positive">正方向</option><option value="negative">逆方向</option><option value="center">中心から外側</option></select></div>
-          <div class="field-row select-row"><label for="order">確定順</label><select id="order"><option value="sequence">順番</option><option value="center">中央から</option><option value="edges">両端から</option><option value="random" selected>ランダム</option><option value="simultaneous">同時</option></select></div>
+          <div class="field-row select-row"><label for="order">確定順</label><select id="order"><option value="sequence">順番</option><option value="center">中央から</option><option value="edges">両端から</option><option value="random" selected>ランダム</option><option value="specified">指定</option><option value="simultaneous">同時</option></select></div>
+          <div id="orderPickerEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>断片を順番に選択</strong><output id="orderPickerCount">0 / 0</output></div>
+            <div id="orderPickerGrid" class="order-picker-grid" aria-label="確定順を指定する断片"></div>
+            <div class="order-picker-actions"><button id="orderPickerAllButton" type="button">順番で設定</button><button id="orderPickerClearButton" type="button">すべて解除</button></div>
+            <p class="field-hint">クリックした順に確定します。未指定の断片は、その後に順番で確定します。</p>
+          </div>
           <label class="field-row" for="distance"><span>移動距離</span><output id="distanceValue">75%</output></label><input id="distance" class="range" type="range" min="10" max="140" step="1" value="75" />
           <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">5.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="5" />
           <label class="field-row" for="moveDuration"><span>1枚の移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="5" step="0.1" value="2" />
@@ -42,6 +48,7 @@
       </aside>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="slice-motion.js"></script><script src="tool-ui.js"></script>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-order.js"></script><script src="slice-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

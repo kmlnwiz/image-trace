@@ -17,12 +17,6 @@
           <p>書き順アニメーション</p>
         </div>
       </a>
-      <nav class="kanji-nav" aria-label="ツール">
-        <a href="./random-kanji.html">Random Kanji</a>
-        <a href="./outline.html">Outline Motion</a>
-        <a href="./text-dial.html">Dial Type</a>
-        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
-      </nav>
     </header>
 
     <main class="kanji-workspace tool-shell tool-shell-compact">
@@ -68,7 +62,7 @@
             <span>全体の時間</span>
             <output id="durationValue">4.0 秒</output>
           </label>
-          <input id="duration" class="range" type="range" min="0.5" max="60" step="0.1" value="4" />
+          <input id="duration" class="range" type="range" min="0.5" max="90" step="0.1" value="4" />
           <label class="field-row" for="strokeDuration">
             <span>1画の描画時間</span>
             <output id="strokeDurationValue">0.30 秒</output>
@@ -107,7 +101,7 @@
           </div>
           <div class="field-row color-row">
             <label for="backgroundColor">背景</label>
-            <span class="color-control"><input id="backgroundColor" type="color" value="#f1f0eb" /><output>#F1F0EB</output></span>
+            <span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span>
           </div>
         </section>
 
@@ -147,7 +141,7 @@
           <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
           <div class="timeline-block">
             <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
-            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:04.0</output></div>
+            <div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:04.0</output></div>
           </div>
           <label class="speed-control" for="previewSpeed"><span>速度</span>
             <select id="previewSpeed">
@@ -164,8 +158,9 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script>
     <script src="motion-toolkit.js"></script>
     <script src="reverse-kanji.js"></script>
-    <script src="tool-ui.js"></script>
+    <script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

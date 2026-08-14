@@ -14,11 +14,6 @@
         <span class="brand-mark tool-mark" aria-hidden="true">送</span>
         <div><h1>Word Conveyor</h1><p>電光掲示板のように1文を循環する</p></div>
       </a>
-      <nav class="header-nav" aria-label="ツール">
-        <a href="./text-dial.html">Dial Type</a>
-        <a href="./text-reel.html">Text Reel</a>
-        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
-      </nav>
     </header>
 
     <main class="workspace tool-workspace tool-shell">
@@ -47,20 +42,20 @@
           <div class="field-row color-row"><label for="textColor">発光文字</label><span class="color-control"><input id="textColor" type="color" value="#ffb52e" /><output>#FFB52E</output></span></div>
           <div class="field-row color-row"><label for="cardColor">表示面</label><span class="color-control"><input id="cardColor" type="color" value="#101417" /><output>#101417</output></span></div>
           <div class="field-row color-row"><label for="beltColor">フレーム</label><span class="color-control"><input id="beltColor" type="color" value="#293640" /><output>#293640</output></span></div>
-          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#dfe5e8" /><output>#DFE5E8</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
         </section>
       </aside>
 
       <section class="stage-panel tool-stage" aria-label="ワードコンベアプレビュー">
         <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">右から左へループ</span></div>
         <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="1文が電光掲示板上を停止せず循環するアニメーション"></canvas></div>
-        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
 
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
         <section class="control-section">
-          <div class="section-heading"><h2>ループ</h2><output id="durationValue" class="meta-value">5.0 秒 / 周</output></div>
-          <label class="field-row" for="duration"><span>1周の時間</span><output>最大90秒</output></label>
+          <div class="section-heading"><h2>ループ</h2></div>
+          <label class="field-row" for="duration"><span>1周の時間</span><output id="durationValue" class="meta-value">5.0 秒 / 周</output></label>
           <input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="5" />
           <p class="field-hint">プレビューは停止せず再生し、動画は継ぎ目のない1周分を書き出します。</p>
         </section>
@@ -77,6 +72,7 @@
     </main>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="word-conveyor.js"></script><script src="tool-ui.js"></script>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="word-conveyor.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

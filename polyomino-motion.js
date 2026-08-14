@@ -1,8 +1,6 @@
 "use strict";
 
 const POLYOMINO_SETTINGS_KEY = "motion-lab:polyomino-motion-settings:v1";
-const FONT_DATABASE_NAME = "motion-lab-assets";
-const FONT_STORE_NAME = "fonts";
 const FONT_ASSET_KEY = "polyomino-motion-local-font";
 const SETTLED_COLOR = "#e0041d";
 const FONT_SIZE_RATIO = 0.58;
@@ -37,6 +35,11 @@ const elements = {
   moveDuration: document.querySelector("#moveDuration"),
   moveDurationValue: document.querySelector("#moveDurationValue"),
   returnOrder: document.querySelector("#returnOrder"),
+  orderEditor: document.querySelector("#orderPickerEditor"),
+  orderGrid: document.querySelector("#orderPickerGrid"),
+  orderCount: document.querySelector("#orderPickerCount"),
+  orderAllButton: document.querySelector("#orderPickerAllButton"),
+  orderClearButton: document.querySelector("#orderPickerClearButton"),
   stagger: document.querySelector("#stagger"),
   staggerValue: document.querySelector("#staggerValue"),
   easing: document.querySelector("#easing"),
@@ -66,57 +69,15 @@ const state = {
 };
 let player = null;
 
-function openFontDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB is unavailable"));
-      return;
-    }
-    const request = indexedDB.open(FONT_DATABASE_NAME, 1);
-    request.addEventListener("upgradeneeded", () => {
-      if (!request.result.objectStoreNames.contains(FONT_STORE_NAME)) request.result.createObjectStore(FONT_STORE_NAME);
-    });
-    request.addEventListener("success", () => resolve(request.result));
-    request.addEventListener("error", () => reject(request.error));
-  });
-}
+const fontStore = MotionFonts.createFontStore(FONT_ASSET_KEY);
 
-async function writeFontAsset(asset) {
-  const database = await openFontDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-    transaction.objectStore(FONT_STORE_NAME).put(asset, FONT_ASSET_KEY);
-    transaction.addEventListener("complete", resolve);
-    transaction.addEventListener("error", () => reject(transaction.error));
-  });
-  database.close();
-}
-
-async function readFontAsset() {
-  const database = await openFontDatabase();
-  const asset = await new Promise((resolve, reject) => {
-    const request = database.transaction(FONT_STORE_NAME, "readonly").objectStore(FONT_STORE_NAME).get(FONT_ASSET_KEY);
-    request.addEventListener("success", () => resolve(request.result || null));
-    request.addEventListener("error", () => reject(request.error));
-  });
-  database.close();
-  return asset;
-}
-
-async function deleteFontAsset() {
-  try {
-    const database = await openFontDatabase();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-      transaction.objectStore(FONT_STORE_NAME).delete(FONT_ASSET_KEY);
-      transaction.addEventListener("complete", resolve);
-      transaction.addEventListener("error", () => reject(transaction.error));
-    });
-    database.close();
-  } catch {
-    // The tool remains usable when browser storage is unavailable.
-  }
-}
+// "指定" mode: the pieces are returned in the order they were clicked.
+const orderPicker = MotionOrder.createOrderPicker({
+  grid: elements.orderGrid,
+  countLabel: elements.orderCount,
+  editor: elements.orderEditor,
+  onChange: () => resetAndRender(),
+});
 
 function updateFontUI() {
   elements.fontFileName.textContent = state.localFontName || "端末内のフォント";
@@ -124,10 +85,7 @@ function updateFontUI() {
 }
 
 async function applyLocalFont(buffer, name) {
-  const family = `PolyominoMotionLocal${Date.now()}`;
-  const font = new FontFace(family, buffer);
-  await font.load();
-  document.fonts.add(font);
+  const family = await MotionFonts.registerFontFile(buffer, "PolyominoMotionLocal");
   state.localFontFamily = family;
   state.localFontName = name;
   updateFontUI();
@@ -144,7 +102,7 @@ async function loadLocalFont(file) {
   try {
     const buffer = await file.arrayBuffer();
     await applyLocalFont(buffer, file.name);
-    await writeFontAsset({ buffer, name: file.name });
+    await fontStore.write({ buffer, name: file.name });
     player.showToast(`${file.name}を適用しました`);
   } catch {
     player.showToast("フォントを読み込めませんでした");
@@ -154,7 +112,7 @@ async function loadLocalFont(file) {
 async function restoreLocalFont(settings) {
   if (!settings?.localFontName) return;
   try {
-    const asset = await readFontAsset();
+    const asset = await fontStore.read();
     if (!asset?.buffer) throw new Error("Stored font was not found");
     await applyLocalFont(asset.buffer, asset.name || settings.localFontName);
   } catch {
@@ -169,7 +127,7 @@ async function clearLocalFont(showMessage = false) {
   state.localFontFamily = "";
   state.localFontName = "";
   updateFontUI();
-  await deleteFontAsset();
+  await fontStore.remove();
   saveSettings();
   render();
   if (showMessage) player.showToast("端末内フォントを解除しました");
@@ -217,6 +175,7 @@ function saveSettings() {
     imageTime: elements.imageTime.value,
     outputSize: elements.outputSize.value,
     fixedPieceIds: [...state.fixedPieceIds],
+    specifiedOrder: orderPicker.getOrder(),
   });
 }
 
@@ -235,6 +194,9 @@ function restoreSettings() {
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
   if (Array.isArray(settings.fixedPieceIds)) {
     state.fixedPieceIds = new Set(settings.fixedPieceIds.map(Number).filter(Number.isInteger));
+  }
+  if (Array.isArray(settings.specifiedOrder)) {
+    orderPicker.setOrder(settings.specifiedOrder.map(Number).filter(Number.isInteger));
   }
   state.lastFontStyle = elements.fontStyle.value;
   return settings;
@@ -496,6 +458,7 @@ function renderFixedPiecePicker() {
       if (state.fixedPieceIds.has(piece.id)) state.fixedPieceIds.delete(piece.id);
       else state.fixedPieceIds.add(piece.id);
       renderFixedPiecePicker();
+      syncOrderPicker();
       resetAndRender();
     });
     elements.fixedPiecePicker.append(button);
@@ -508,7 +471,7 @@ function sceneLayout() {
   const side = packing.orientation === "side";
   const totalWidth = side ? columns + packing.majorGap + packing.width : Math.max(columns, packing.width);
   const totalHeight = side ? Math.max(rows, packing.height) : rows + packing.majorGap + packing.height;
-  const cellSize = Math.min(elements.canvas.width * 0.88 / totalWidth, elements.canvas.height * 0.8 / totalHeight);
+  const cellSize = Math.min(elements.canvas.width * 0.965 / totalWidth, elements.canvas.height * 0.945 / totalHeight);
   const originX = (elements.canvas.width - totalWidth * cellSize) / 2;
   const originY = (elements.canvas.height - totalHeight * cellSize) / 2;
   const boardX = side ? originX : originX + (totalWidth - columns) * cellSize / 2;
@@ -567,6 +530,20 @@ function rebuildPieces() {
   state.fixedPieceIds = new Set([...state.fixedPieceIds].filter((id) => state.pieces.some((piece) => piece.id === id)));
   buildPlacements(random);
   renderFixedPiecePicker();
+  syncOrderPicker();
+}
+
+// The picker lists the pieces that actually move, labelled by their first cell
+// so a mino can be told apart on the board.
+function syncOrderPicker() {
+  const boardColumns = dimensions().columns;
+  const moving = state.pieces.filter((piece) => !state.fixedPieceIds.has(piece.id));
+  const sorted = [...moving].sort((a, b) => a.readingIndex - b.readingIndex);
+  orderPicker.setItems(sorted.map((piece) => ({
+    id: piece.id,
+    label: `${piece.readingIndex % boardColumns + 1},${Math.floor(piece.readingIndex / boardColumns) + 1}`,
+  })));
+  orderPicker.setVisible(elements.returnOrder.value === "specified");
 }
 
 function readingRanks() {
@@ -582,6 +559,14 @@ function pieceRank(piece) {
   const readingRank = readingRanks().get(piece.id) || 0;
   if (mode === "reading") return readingRank;
   if (mode === "reverse") return movingPieces.length - 1 - readingRank;
+  if (mode === "specified") {
+    // Only the moving pieces are ranked, so a fixed piece never leaves a gap.
+    const picked = orderPicker.ranks();
+    return movingPieces
+      .slice()
+      .sort((a, b) => (picked.get(a.id) ?? 0) - (picked.get(b.id) ?? 0))
+      .findIndex((item) => item.id === piece.id);
+  }
   return [...movingPieces].sort((a, b) => a.randomRank - b.randomRank).findIndex((item) => item.id === piece.id);
 }
 
@@ -854,7 +839,12 @@ elements.shuffle.addEventListener("click", () => {
 [elements.duration, elements.moveDuration, elements.stagger]
   .forEach((control) => control.addEventListener("input", resetAndRender));
 [elements.returnOrder, elements.easing]
-  .forEach((control) => control.addEventListener("change", resetAndRender));
+  .forEach((control) => control.addEventListener("change", () => {
+    syncOrderPicker();
+    resetAndRender();
+  }));
+elements.orderAllButton.addEventListener("click", () => orderPicker.selectAll());
+elements.orderClearButton.addEventListener("click", () => orderPicker.clear());
 elements.palette.addEventListener("change", () => { renderFixedPiecePicker(); saveSettings(); updateLabels(); render(); });
 elements.fontStyle.addEventListener("change", async () => {
   if (elements.fontStyle.value !== state.lastFontStyle) await clearLocalFont(false);
@@ -877,11 +867,13 @@ elements.outputSize.addEventListener("change", () => {
 elements.clearFixedPieces.addEventListener("click", () => {
   state.fixedPieceIds.clear();
   renderFixedPiecePicker();
+  syncOrderPicker();
   resetAndRender();
 });
 elements.selectAllFixedPieces.addEventListener("click", () => {
   state.fixedPieceIds = new Set(state.pieces.map((piece) => piece.id));
   renderFixedPiecePicker();
+  syncOrderPicker();
   resetAndRender();
 });
 updateLabels();

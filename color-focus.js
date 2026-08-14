@@ -485,16 +485,7 @@ async function handleFile(file) {
   }
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
-  ctx.arcTo(x, y + height, x, y, safeRadius);
-  ctx.arcTo(x, y, x + width, y, safeRadius);
-  ctx.closePath();
-}
+const roundedRectPath = MotionToolkit.roundedRectPath;
 
 function createSampleIllustration() {
   const canvas = document.createElement("canvas");

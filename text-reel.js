@@ -6,8 +6,6 @@ const MAX_COLUMNS = 12;
 const MAX_ROWS = 40;
 const DEFAULT_COLUMN_TEXTS = ["あいうえお", "かきくけこ", "さしすせそ", "たちつてと"];
 const REEL_SETTINGS_KEY = "motion-lab:text-reel-settings:v1";
-const FONT_DATABASE_NAME = "motion-lab-assets";
-const FONT_STORE_NAME = "fonts";
 const FONT_ASSET_KEY = "text-reel-local-font";
 
 const elements = {
@@ -561,60 +559,7 @@ function hasStopped(index, time) {
     && time >= Number(state.stopTimes[index]);
 }
 
-function openFontDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB is unavailable"));
-      return;
-    }
-    const request = indexedDB.open(FONT_DATABASE_NAME, 1);
-    request.addEventListener("upgradeneeded", () => {
-      if (!request.result.objectStoreNames.contains(FONT_STORE_NAME)) {
-        request.result.createObjectStore(FONT_STORE_NAME);
-      }
-    });
-    request.addEventListener("success", () => resolve(request.result));
-    request.addEventListener("error", () => reject(request.error));
-  });
-}
-
-async function writeFontAsset(asset) {
-  const database = await openFontDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-    transaction.objectStore(FONT_STORE_NAME).put(asset, FONT_ASSET_KEY);
-    transaction.addEventListener("complete", resolve);
-    transaction.addEventListener("error", () => reject(transaction.error));
-  });
-  database.close();
-}
-
-async function readFontAsset() {
-  const database = await openFontDatabase();
-  const asset = await new Promise((resolve, reject) => {
-    const request = database.transaction(FONT_STORE_NAME, "readonly")
-      .objectStore(FONT_STORE_NAME).get(FONT_ASSET_KEY);
-    request.addEventListener("success", () => resolve(request.result || null));
-    request.addEventListener("error", () => reject(request.error));
-  });
-  database.close();
-  return asset;
-}
-
-async function deleteFontAsset() {
-  try {
-    const database = await openFontDatabase();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-      transaction.objectStore(FONT_STORE_NAME).delete(FONT_ASSET_KEY);
-      transaction.addEventListener("complete", resolve);
-      transaction.addEventListener("error", () => reject(transaction.error));
-    });
-    database.close();
-  } catch {
-    // The tool remains usable when browser storage is unavailable.
-  }
-}
+const fontStore = MotionFonts.createFontStore(FONT_ASSET_KEY);
 
 function fontFamily() {
   if (state.localFontFamily) return `"${state.localFontFamily}", sans-serif`;
@@ -624,10 +569,7 @@ function fontFamily() {
 }
 
 async function applyLocalFont(buffer, name) {
-  const family = `TextReelLocal${Date.now()}`;
-  const font = new FontFace(family, buffer);
-  await font.load();
-  document.fonts.add(font);
+  const family = await MotionFonts.registerFontFile(buffer, "TextReelLocal");
   state.localFontFamily = family;
   state.localFontName = name;
   elements.fontFileName.textContent = name;
@@ -644,7 +586,7 @@ async function loadLocalFont(file) {
   try {
     const buffer = await file.arrayBuffer();
     await applyLocalFont(buffer, file.name);
-    await writeFontAsset({ buffer, name: file.name });
+    await fontStore.write({ buffer, name: file.name });
     showToast(`${file.name}を適用しました`);
   } catch {
     showToast("フォントを読み込めませんでした");
@@ -654,7 +596,7 @@ async function loadLocalFont(file) {
 async function restoreLocalFont(settings) {
   if (!settings?.localFontName) return;
   try {
-    const asset = await readFontAsset();
+    const asset = await fontStore.read();
     if (!asset?.buffer) throw new Error("Stored font was not found");
     await applyLocalFont(asset.buffer, asset.name || settings.localFontName);
   } catch {
@@ -665,16 +607,7 @@ async function restoreLocalFont(settings) {
   }
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
-  ctx.arcTo(x, y + height, x, y, safeRadius);
-  ctx.arcTo(x, y, x + width, y, safeRadius);
-  ctx.closePath();
-}
+const roundedRectPath = MotionToolkit.roundedRectPath;
 
 function hexToRgba(hex, alpha) {
   const value = hex.replace("#", "");
@@ -779,9 +712,9 @@ function render(playhead = state.playhead) {
     return;
   }
 
-  const sidePadding = count <= 4 ? 100 : 76;
+  const sidePadding = count <= 4 ? 48 : 38;
   const desiredGap = count <= 6 ? 24 : 14;
-  const maxWidth = count <= 4 ? 260 : count <= 7 ? 205 : 140;
+  const maxWidth = count <= 4 ? 300 : count <= 7 ? 238 : 164;
   const reelWidth = clamp(
     (outputWidth - sidePadding * 2 - desiredGap * (count - 1)) / count,
     72,
@@ -792,7 +725,7 @@ function render(playhead = state.playhead) {
     : 0;
   const totalWidth = reelWidth * count + gap * (count - 1);
   const startX = (outputWidth - totalWidth) / 2;
-  const rowHeight = clamp(reelWidth * 0.82, 92, 152);
+  const rowHeight = clamp(reelWidth * 0.82, 92, 186);
   const reelHeight = rowHeight * 3;
   const startY = (outputHeight - reelHeight) / 2;
   const time = playhead * Number(elements.duration.value);
@@ -1014,7 +947,7 @@ elements.fontStyle.addEventListener("change", () => {
   state.localFontFamily = "";
   state.localFontName = "";
   elements.fontFileName.textContent = "端末内のフォント";
-  deleteFontAsset();
+  fontStore.remove();
   saveSettings();
   render();
 });

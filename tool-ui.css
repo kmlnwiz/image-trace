@@ -310,6 +310,112 @@
   margin-top: 8px;
 }
 
+/* --- shared tool switcher ------------------------------------------------ */
+
+.tool-switcher {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.tool-switcher > summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  list-style: none;
+  background: white;
+  cursor: pointer;
+}
+
+.tool-switcher > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-switcher > summary > i {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 9px;
+}
+
+.tool-switcher[open] > summary {
+  border-color: var(--accent);
+}
+
+.tool-switcher-panel {
+  position: absolute;
+  z-index: 25;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 268px;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--ui-shadow);
+}
+
+.tool-switcher-group {
+  margin: 10px 0 4px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.tool-switcher-group:first-child {
+  margin-top: 2px;
+}
+
+.tool-switcher-item {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.tool-switcher-item:hover {
+  background: #f2f5f7;
+}
+
+.tool-switcher-item.is-current {
+  background: var(--accent-soft, #f2f5f7);
+}
+
+.tool-switcher-item strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.tool-switcher-item small {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tool-page .header-actions > .home-link {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-radius);
+  color: var(--ink);
+  text-decoration: none;
+  background: white;
+}
+
 .tool-preset-menu {
   position: relative;
   flex: 0 0 auto;
@@ -351,47 +457,320 @@
   box-shadow: var(--ui-shadow);
 }
 
-.tool-preset-panel > label {
-  display: block;
-  margin-bottom: 6px;
+.tool-preset-panel select,
+.tool-preset-panel input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 11px;
+  background: white;
+}
+
+.tool-preset-heading {
+  margin: 12px 0 6px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 750;
 }
 
-.tool-preset-panel select {
-  width: 100%;
-}
-
-.tool-preset-actions {
+.tool-preset-save,
+.tool-preset-reset {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
-  margin-top: 8px;
 }
 
-.tool-preset-actions button {
+.tool-preset-list {
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.tool-preset-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.tool-preset-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-preset-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tool-preset-panel button {
   min-height: 32px;
-  padding: 0 6px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--ink);
   font-size: 10px;
   font-weight: 750;
   background: #f8fafb;
+  cursor: pointer;
 }
 
-.tool-preset-actions button:hover:not(:disabled) {
+.tool-preset-panel button:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
-.tool-preset-actions button:disabled {
+.tool-preset-panel button:disabled {
   opacity: 0.42;
   cursor: default;
 }
 
-.tool-preset-actions .is-danger {
+.tool-preset-panel .is-danger {
   color: #a84035;
+}
+
+/* --- shared "指定" order picker ------------------------------------------- */
+
+.tool-page .order-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.tool-page .order-picker[hidden] {
+  display: none;
+}
+
+.tool-page .order-picker > p {
+  margin: 0;
+}
+
+.tool-page .order-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+
+.tool-page .order-picker-heading strong {
+  font-size: 11px;
+}
+
+.tool-page .order-picker-heading output {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-page .order-picker-grid {
+  max-height: 176px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.tool-page .order-picker-grid button {
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  background: white;
+  cursor: pointer;
+}
+
+.tool-page .order-picker-grid button:hover {
+  border-color: var(--accent);
+}
+
+.tool-page .order-picker-grid button small {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.tool-page .order-picker-grid button.is-assigned {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
+}
+
+.tool-page .order-picker-grid button.is-assigned small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tool-page .order-picker-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.tool-page .order-picker-actions button {
+  min-height: 30px;
+  border: 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  background: #f8fafb;
+  cursor: pointer;
+}
+
+.tool-page .order-picker-actions button + button {
+  border-left: 1px solid var(--line);
+}
+
+.tool-page .order-picker-actions button:hover {
+  background: var(--accent-soft, #eef3f6);
+}
+
+/* --- grabbable seek bar --------------------------------------------------- */
+/* The native thumb inherited the 18px track height and was hard to catch, so
+   the timeline gets an explicit track and a thumb big enough to grab. */
+
+.tool-page .timeline {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: grab;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.tool-page .timeline:active {
+  cursor: grabbing;
+}
+
+.tool-page .timeline::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #d7dee2;
+}
+
+.tool-page .timeline::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #d7dee2;
+}
+
+.tool-page .timeline::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -5px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--accent, #2f6f8f);
+  box-shadow: 0 1px 4px rgba(20, 30, 40, 0.32);
+  cursor: grab;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.tool-page .timeline::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: var(--accent, #2f6f8f);
+  box-shadow: 0 1px 4px rgba(20, 30, 40, 0.32);
+  cursor: grab;
+}
+
+.tool-page .timeline:focus-visible {
+  outline: 2px solid var(--focus, #2f6f8f);
+  outline-offset: 3px;
+}
+
+.tool-page .time-input {
+  width: 62px;
+  padding: 1px 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+}
+
+.tool-page .time-input:hover {
+  border-color: var(--line);
+  background: white;
+}
+
+.tool-page .time-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  color: var(--ink);
+  background: white;
+}
+
+/* --- numeric text entry beside a slider ---------------------------------- */
+
+.tool-page .value-input {
+  width: 74px;
+  min-height: 24px;
+  flex: 0 0 auto;
+  padding: 0 4px 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  background: transparent;
+}
+
+.tool-page .value-input:hover {
+  border-color: var(--line);
+  background: white;
+}
+
+.tool-page .value-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: white;
+}
+
+.tool-page .value-input.is-invalid {
+  border-color: #c4443a;
+}
+
+.tool-page .value-input-unit {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tool-page .value-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
 }
 
 @media (max-width: 1180px) {

@@ -4,8 +4,6 @@ const OUTPUT_WIDTH = 1600;
 const OUTPUT_HEIGHT = 1000;
 const MAX_CHARACTERS = 12;
 const DIAL_SETTINGS_KEY = "motion-lab:dial-settings:v1";
-const FONT_DATABASE_NAME = "motion-lab-assets";
-const FONT_STORE_NAME = "fonts";
 const FONT_ASSET_KEY = "dial-type-local-font";
 
 const HIRAGANA = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"];
@@ -79,60 +77,7 @@ const state = {
   localFontName: "",
 };
 
-function openFontDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB is unavailable"));
-      return;
-    }
-    const request = indexedDB.open(FONT_DATABASE_NAME, 1);
-    request.addEventListener("upgradeneeded", () => {
-      if (!request.result.objectStoreNames.contains(FONT_STORE_NAME)) {
-        request.result.createObjectStore(FONT_STORE_NAME);
-      }
-    });
-    request.addEventListener("success", () => resolve(request.result));
-    request.addEventListener("error", () => reject(request.error));
-  });
-}
-
-async function writeFontAsset(asset) {
-  const database = await openFontDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-    transaction.objectStore(FONT_STORE_NAME).put(asset, FONT_ASSET_KEY);
-    transaction.addEventListener("complete", resolve);
-    transaction.addEventListener("error", () => reject(transaction.error));
-  });
-  database.close();
-}
-
-async function readFontAsset() {
-  const database = await openFontDatabase();
-  const asset = await new Promise((resolve, reject) => {
-    const request = database.transaction(FONT_STORE_NAME, "readonly")
-      .objectStore(FONT_STORE_NAME).get(FONT_ASSET_KEY);
-    request.addEventListener("success", () => resolve(request.result || null));
-    request.addEventListener("error", () => reject(request.error));
-  });
-  database.close();
-  return asset;
-}
-
-async function deleteFontAsset() {
-  try {
-    const database = await openFontDatabase();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-      transaction.objectStore(FONT_STORE_NAME).delete(FONT_ASSET_KEY);
-      transaction.addEventListener("complete", resolve);
-      transaction.addEventListener("error", () => reject(transaction.error));
-    });
-    database.close();
-  } catch {
-    // There may be no stored font to remove.
-  }
-}
+const fontStore = MotionFonts.createFontStore(FONT_ASSET_KEY);
 
 function saveDialSettings() {
   MotionStorage.write(DIAL_SETTINGS_KEY, {
@@ -366,10 +311,7 @@ function fontFamily() {
 }
 
 async function applyLocalFont(buffer, name) {
-  const family = `DialTypeLocal${Date.now()}`;
-  const font = new FontFace(family, buffer);
-  await font.load();
-  document.fonts.add(font);
+  const family = await MotionFonts.registerFontFile(buffer, "DialTypeLocal");
   state.localFontFamily = family;
   state.localFontName = name;
   elements.fontFileName.textContent = name;
@@ -386,7 +328,7 @@ async function loadLocalFont(file) {
   try {
     const buffer = await file.arrayBuffer();
     await applyLocalFont(buffer, file.name);
-    await writeFontAsset({ buffer, name: file.name });
+    await fontStore.write({ buffer, name: file.name });
     showToast(`${file.name}を適用しました`);
   } catch {
     showToast("フォントを読み込めませんでした");
@@ -396,7 +338,7 @@ async function loadLocalFont(file) {
 async function restoreLocalFont(settings) {
   if (!settings?.localFontName) return;
   try {
-    const asset = await readFontAsset();
+    const asset = await fontStore.read();
     if (!asset?.buffer) throw new Error("Stored font was not found");
     await applyLocalFont(asset.buffer, asset.name || settings.localFontName);
   } catch {
@@ -407,16 +349,7 @@ async function restoreLocalFont(settings) {
   }
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
-}
+const roundedRectPath = MotionToolkit.roundedRectPath;
 
 function hexToRgb(hex) {
   const value = hex.replace("#", "");
@@ -440,6 +373,14 @@ function mixRgb(from, to, amount) {
   };
 }
 
+// The dial shows the target character plus `visibleNeighbors` on each side, so
+// the rows have to divide that window instead of staying at a fixed third of
+// the dial. One and zero keep the original third so the default look is intact.
+function dialRowHeight(height) {
+  const window = Number(elements.visibleNeighbors.value);
+  return height / Math.max(2.94, window * 2 + 1);
+}
+
 function drawDial(x, y, width, height, character, index, playhead) {
   const dialColor = elements.dialColor.value;
   const textColor = elements.textColor.value;
@@ -449,9 +390,10 @@ function drawDial(x, y, width, height, character, index, playhead) {
   const completed = !state.animated[index] || local >= 0.9999;
   const shiftAmount = Number(elements.shiftAmount.value);
   const animatedOffset = state.animated[index] ? directionForIndex(index) * shiftAmount * (1 - ease(local)) : 0;
-  const rowHeight = height * 0.34;
+  const rowHeight = dialRowHeight(height);
   const centerY = y + height / 2;
-  const fontSize = Math.min(width * 0.61, 92);
+  // A wider window packs more rows into the same dial, so the glyphs shrink to fit.
+  const fontSize = Math.min(width * 0.61, 92, rowHeight * 0.95);
 
   context.save();
   context.shadowColor = "rgba(26, 36, 42, 0.13)";
@@ -482,21 +424,23 @@ function drawDial(x, y, width, height, character, index, playhead) {
   const dialRgb = hexToRgb(dialColor);
 
   const visibleNeighbors = Number(elements.visibleNeighbors.value);
-  const initialOffset = directionForIndex(index) * shiftAmount;
-  const initialFirstRow = Math.ceil(initialOffset - visibleNeighbors);
-  const initialLastRow = Math.floor(initialOffset + visibleNeighbors);
-  const relativeRows = state.animated[index]
-    ? Array.from(
-      { length: initialLastRow - initialFirstRow + 1 },
-      (_, row) => initialFirstRow + row,
-    )
-    : [0];
+  // The fade used to run out one row from the centre whatever the setting was,
+  // so asking for more neighbours rendered them and then blended them away.
+  // Every requested row is now fully drawn and only the row past the window fades.
+  const fadeStart = visibleNeighbors + 0.02;
+  const fadeEnd = visibleNeighbors + 1.02;
+  // Rows are taken around where the dial sits right now, so the window holds
+  // the same characters throughout the spin rather than only at the start.
+  const relativeRows = [];
+  for (let row = Math.floor(animatedOffset - visibleNeighbors); row <= Math.ceil(animatedOffset + visibleNeighbors); row += 1) {
+    relativeRows.push(row);
+  }
   relativeRows.forEach((relative) => {
     const glyph = relative === 0 ? base : neighborCharacter(character, relative);
     const glyphY = centerY + (relative - animatedOffset) * rowHeight;
     const distance = Math.abs(glyphY - centerY) / rowHeight;
-    if (distance > visibleNeighbors + 0.001) return;
-    const visibility = 1 - smoothstep(0.16, 1.02, distance);
+    if (distance > fadeEnd + 0.001) return;
+    const visibility = 1 - smoothstep(fadeStart, fadeEnd, distance);
     const targetRgb = relative === 0 && completed ? hexToRgb(settledColor) : centerRgb;
     const glyphRgb = mixRgb(dialRgb, targetRgb, visibility);
     context.fillStyle = `rgb(${glyphRgb.r}, ${glyphRgb.g}, ${glyphRgb.b})`;
@@ -512,17 +456,20 @@ function drawDial(x, y, width, height, character, index, playhead) {
   context.lineTo(x + width, centerY + rowHeight / 2);
   context.stroke();
 
-  const topFade = context.createLinearGradient(0, y, 0, y + height * 0.48);
+  // The vignette has to clear the outermost requested row, otherwise it paints
+  // the dial colour straight over the neighbours the window just drew.
+  const fadeDepth = Math.max(height * 0.03, height / 2 - (visibleNeighbors + 0.42) * rowHeight);
+  const topFade = context.createLinearGradient(0, y, 0, y + fadeDepth);
   topFade.addColorStop(0, dialColor);
   topFade.addColorStop(1, `${dialColor}00`);
   context.fillStyle = topFade;
-  context.fillRect(x, y, width, height * 0.48);
+  context.fillRect(x, y, width, fadeDepth);
 
-  const bottomFade = context.createLinearGradient(0, y + height * 0.52, 0, y + height);
+  const bottomFade = context.createLinearGradient(0, y + height - fadeDepth, 0, y + height);
   bottomFade.addColorStop(0, `${dialColor}00`);
   bottomFade.addColorStop(1, dialColor);
   context.fillStyle = bottomFade;
-  context.fillRect(x, y + height * 0.52, width, height * 0.48);
+  context.fillRect(x, y + height - fadeDepth, width, fadeDepth);
   context.restore();
 
   context.strokeStyle = state.animated[index] ? "rgba(8, 126, 112, 0.55)" : "rgba(88, 101, 108, 0.32)";
@@ -556,14 +503,14 @@ function render(playhead = state.playhead) {
   context.fillRect(0, 0, outputWidth, outputHeight);
 
   const count = Math.max(1, state.characters.length);
-  const sidePadding = count <= 7 ? 70 : 100;
+  const sidePadding = count <= 7 ? 34 : 52;
   const maxGap = count <= 7 ? 22 : 18;
-  const maxDialWidth = count <= 4 ? 230 : count <= 7 ? 190 : 150;
+  const maxDialWidth = count <= 4 ? 268 : count <= 7 ? 222 : 176;
   const dialWidth = clamp((outputWidth - sidePadding * 2 - maxGap * (count - 1)) / count, 68, maxDialWidth);
   const gap = count > 1 ? Math.min(maxGap, (outputWidth - sidePadding * 2 - dialWidth * count) / (count - 1)) : 0;
   const totalWidth = dialWidth * count + gap * (count - 1);
   const startX = (outputWidth - totalWidth) / 2;
-  const dialHeight = clamp(dialWidth * 2.35, 240, count <= 7 ? 430 : 350);
+  const dialHeight = clamp(dialWidth * 2.35, 240, count <= 7 ? 520 : 430);
   const startY = (outputHeight - dialHeight) / 2;
 
   if (!state.characters.length) {
@@ -580,7 +527,7 @@ function render(playhead = state.playhead) {
     drawDial(startX + index * (dialWidth + gap), startY, dialWidth, dialHeight, character, index, playhead);
   });
 
-  const rowHeight = dialHeight * 0.34;
+  const rowHeight = dialRowHeight(dialHeight);
   const framePaddingX = 16;
   const framePaddingY = 12;
   context.save();
@@ -845,7 +792,7 @@ elements.fontStyle.addEventListener("change", () => {
   state.localFontFamily = "";
   state.localFontName = "";
   elements.fontFileName.textContent = "端末内のフォント";
-  deleteFontAsset();
+  fontStore.remove();
   saveDialSettings();
   render();
 });
