@@ -393,7 +393,7 @@ function drawDial(x, y, width, height, character, index, playhead) {
   const rowHeight = dialRowHeight(height);
   const centerY = y + height / 2;
   // A wider window packs more rows into the same dial, so the glyphs shrink to fit.
-  const fontSize = Math.min(width * 0.61, 92, rowHeight * 1.15);
+  const fontSize = Math.min(width * 0.61, 92, rowHeight * 0.95);
 
   context.save();
   context.shadowColor = "rgba(26, 36, 42, 0.13)";

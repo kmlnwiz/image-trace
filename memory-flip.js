@@ -359,8 +359,13 @@ function drawPanel(panel, layout, seconds) {
   context.fillText(label, 0, 2);
   context.restore();
 
-  context.fillStyle = "rgba(255, 255, 255, 0.10)";
-  context.fillRect(faceX, -layout.height / 2, Math.max(1, visibleWidth * 0.5), layout.height);
+  // A soft gradient rather than a hard half-width block, which showed as a
+  // seam once the panel took the saturated settled colour.
+  const sheen = context.createLinearGradient(faceX, 0, faceX + Math.max(1, visibleWidth), 0);
+  sheen.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+  sheen.addColorStop(1, "rgba(255, 255, 255, 0)");
+  context.fillStyle = sheen;
+  context.fillRect(faceX, -layout.height / 2, Math.max(1, visibleWidth), layout.height);
   context.restore();
 }
 
@@ -396,7 +401,7 @@ function updateStatus(seconds) {
 
 function updateLabels() {
   const characters = sourceCharacters();
-  elements.characterCount.value = `${characters.length} / ${panelCount() / 2 || 0}`;
+  elements.characterCount.value = `${characters.length}文字 → ${panelCount() / 2 || 0}組`;
   elements.gridColumnsValue.value = `${columns()} 枚`;
   elements.gridRowsValue.value = `${rows()} 枚`;
   elements.boardSummary.value = `${columns()} × ${rows()} · ${state.pairCount}組`;
