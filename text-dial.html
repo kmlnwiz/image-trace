@@ -17,12 +17,6 @@
           <p>文字ダイヤルアニメーション</p>
         </div>
       </a>
-      <nav class="dial-nav" aria-label="ツール">
-        <a href="./outline.html">Outline Motion</a>
-        <a href="./reverse-kanji.html">Kanji Writer</a>
-        <a href="./text-reel.html">Text Reel</a>
-        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
-      </nav>
     </header>
 
     <main class="dial-workspace tool-shell tool-shell-compact">
@@ -175,7 +169,7 @@
           <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
           <div class="timeline-block">
             <input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" />
-            <div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:03.5</output></div>
+            <div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:03.5</output></div>
           </div>
           <label class="speed-control" for="previewSpeed"><span>速度</span>
             <select id="previewSpeed">
@@ -192,8 +186,9 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script>
     <script src="motion-toolkit.js"></script>
-    <script src="text-dial.js"></script>
-    <script src="tool-ui.js"></script>
+    <script src="motion-fonts.js"></script><script src="text-dial.js"></script>
+    <script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

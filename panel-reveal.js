@@ -1,8 +1,6 @@
 "use strict";
 
 const PANEL_REVEAL_SETTINGS_KEY = "motion-lab:panel-reveal-settings:v2";
-const FONT_DATABASE_NAME = "motion-lab-assets";
-const FONT_STORE_NAME = "fonts";
 const FONT_ASSET_KEY = "panel-reveal-local-font";
 const SETTLED_TEXT_COLOR = "#e0041d";
 
@@ -71,57 +69,7 @@ const TYPE_INFO = Object.freeze({
   symbol: { label: "記", name: "記号" },
 });
 
-function openFontDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB is unavailable"));
-      return;
-    }
-    const request = indexedDB.open(FONT_DATABASE_NAME, 1);
-    request.addEventListener("upgradeneeded", () => {
-      if (!request.result.objectStoreNames.contains(FONT_STORE_NAME)) request.result.createObjectStore(FONT_STORE_NAME);
-    });
-    request.addEventListener("success", () => resolve(request.result));
-    request.addEventListener("error", () => reject(request.error));
-  });
-}
-
-async function writeFontAsset(asset) {
-  const database = await openFontDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-    transaction.objectStore(FONT_STORE_NAME).put(asset, FONT_ASSET_KEY);
-    transaction.addEventListener("complete", resolve);
-    transaction.addEventListener("error", () => reject(transaction.error));
-  });
-  database.close();
-}
-
-async function readFontAsset() {
-  const database = await openFontDatabase();
-  const asset = await new Promise((resolve, reject) => {
-    const request = database.transaction(FONT_STORE_NAME, "readonly").objectStore(FONT_STORE_NAME).get(FONT_ASSET_KEY);
-    request.addEventListener("success", () => resolve(request.result || null));
-    request.addEventListener("error", () => reject(request.error));
-  });
-  database.close();
-  return asset;
-}
-
-async function deleteFontAsset() {
-  try {
-    const database = await openFontDatabase();
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(FONT_STORE_NAME, "readwrite");
-      transaction.objectStore(FONT_STORE_NAME).delete(FONT_ASSET_KEY);
-      transaction.addEventListener("complete", resolve);
-      transaction.addEventListener("error", () => reject(transaction.error));
-    });
-    database.close();
-  } catch {
-    // The tool remains usable when browser storage is unavailable.
-  }
-}
+const fontStore = MotionFonts.createFontStore(FONT_ASSET_KEY);
 
 function fontFamily() {
   if (state.localFontFamily) return `"${state.localFontFamily}", sans-serif`;
@@ -136,10 +84,7 @@ function updateFontUI() {
 }
 
 async function applyLocalFont(buffer, name) {
-  const family = `PanelRevealLocal${Date.now()}`;
-  const font = new FontFace(family, buffer);
-  await font.load();
-  document.fonts.add(font);
+  const family = await MotionFonts.registerFontFile(buffer, "PanelRevealLocal");
   state.localFontFamily = family;
   state.localFontName = name;
   updateFontUI();
@@ -156,7 +101,7 @@ async function loadLocalFont(file) {
   try {
     const buffer = await file.arrayBuffer();
     await applyLocalFont(buffer, file.name);
-    await writeFontAsset({ buffer, name: file.name });
+    await fontStore.write({ buffer, name: file.name });
     player.showToast(`${file.name}を適用しました`);
   } catch {
     player.showToast("フォントを読み込めませんでした");
@@ -166,7 +111,7 @@ async function loadLocalFont(file) {
 async function restoreLocalFont(settings) {
   if (!settings?.localFontName) return;
   try {
-    const asset = await readFontAsset();
+    const asset = await fontStore.read();
     if (!asset?.buffer) throw new Error("Stored font was not found");
     await applyLocalFont(asset.buffer, asset.name || settings.localFontName);
   } catch {
@@ -181,7 +126,7 @@ async function clearLocalFont(showMessage = false) {
   state.localFontFamily = "";
   state.localFontName = "";
   updateFontUI();
-  await deleteFontAsset();
+  await fontStore.remove();
   saveSettings();
   render();
   if (showMessage) player.showToast("端末内フォントを解除しました");

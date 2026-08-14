@@ -32,6 +32,17 @@
     return `${minutes}:${remainder.toFixed(1).padStart(4, "0")}`;
   }
 
+  // Accepts what formatTime writes ("1:23.4") as well as a plain "83.4".
+  function parseTime(text) {
+    const source = String(text ?? "").trim();
+    if (!source) return null;
+    const parts = source.split(":");
+    if (parts.length > 2) return null;
+    const numbers = parts.map((part) => Number(part.replace(/[^\d.]/g, "")));
+    if (numbers.some((value) => !Number.isFinite(value))) return null;
+    return parts.length === 2 ? numbers[0] * 60 + numbers[1] : numbers[0];
+  }
+
   function graphemes(value, locale = "ja") {
     const normalized = String(value ?? "").normalize("NFC");
     if (typeof Intl.Segmenter !== "function") return Array.from(normalized);
@@ -456,6 +467,8 @@
       playhead: 0,
       isPlaying: false,
       isExporting: false,
+      isScrubbing: false,
+      resumeAfterScrub: false,
       startedAt: 0,
       rafId: 0,
       toastTimer: 0,
@@ -483,8 +496,11 @@
 
     function update() {
       const total = duration();
-      if (elements.timeline) elements.timeline.value = String(Math.round(state.playhead * 1000));
-      if (elements.current) elements.current.value = formatTime(state.playhead * total);
+      // While a drag is in flight the pointer owns the handle position.
+      if (elements.timeline && !state.isScrubbing) elements.timeline.value = String(Math.round(state.playhead * 1000));
+      if (elements.current && document.activeElement !== elements.current) {
+        elements.current.value = formatTime(state.playhead * total);
+      }
       if (elements.total) elements.total.value = formatTime(total);
       if (elements.play) {
         elements.play.textContent = state.isPlaying ? "Ⅱ" : "▶";
@@ -641,6 +657,36 @@
     elements.play?.addEventListener("click", () => state.isPlaying ? stop() : play());
     elements.restart?.addEventListener("click", reset);
     elements.timeline?.addEventListener("input", () => setProgress(Number(elements.timeline.value) / 1000));
+    // Grabbing the bar pauses, and letting go resumes if it was playing, so a
+    // scrub never has to be paid for with a second click on play.
+    elements.timeline?.addEventListener("pointerdown", () => {
+      state.isScrubbing = true;
+      state.resumeAfterScrub = state.isPlaying;
+    });
+    function endScrub() {
+      if (!state.isScrubbing) return;
+      state.isScrubbing = false;
+      if (state.resumeAfterScrub && !state.isExporting) play();
+      state.resumeAfterScrub = false;
+      update();
+    }
+    elements.timeline?.addEventListener("pointerup", endScrub);
+    elements.timeline?.addEventListener("pointercancel", endScrub);
+    window.addEventListener("pointerup", endScrub);
+    elements.current?.addEventListener("change", () => {
+      const seconds = parseTime(elements.current.value);
+      if (seconds === null) {
+        update();
+        return;
+      }
+      setProgress(clamp(seconds, 0, duration()) / duration());
+    });
+    elements.current?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        elements.current.blur();
+      }
+    });
     elements.speed?.addEventListener("change", () => {
       options.onControlChange?.();
       if (state.isPlaying) {
@@ -671,6 +717,7 @@
     lerp,
     ease,
     formatTime,
+    parseTime,
     graphemes,
     hashSeed,
     seededRandom,

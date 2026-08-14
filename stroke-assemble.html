@@ -14,11 +14,6 @@
         <span class="brand-mark tool-mark" aria-hidden="true">集</span>
         <div><h1>Stroke Assemble</h1><p>散らばった画を漢字へ戻す</p></div>
       </a>
-      <nav class="header-nav" aria-label="ツール">
-        <a href="./radical-highlight.html">Radical Highlight</a>
-        <a href="./random-kanji.html">Random Kanji</a>
-        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
-      </nav>
     </header>
 
     <main class="workspace tool-workspace tool-shell">
@@ -57,7 +52,7 @@
         <div class="transport">
           <button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button>
           <button id="playButton" class="play-button" type="button" aria-label="再生">▶</button>
-          <div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:06.0</output></div></div>
+          <div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:06.0</output></div></div>
           <label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         </div>
       </section>
@@ -66,7 +61,7 @@
         <section class="control-section">
           <div class="section-heading"><h2>戻り方</h2></div>
           <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">6.0 秒</output></label>
-          <input id="duration" class="range" type="range" min="1" max="60" step="0.5" value="6" />
+          <input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
           <label class="field-row" for="moveDuration"><span>1画の移動時間</span><output id="moveDurationValue">0.5 秒 / 30f</output></label>
           <input id="moveDuration" class="range" type="range" min="0.02" max="6" step="0.01" value="0.5" />
           <div class="field-row select-row"><label for="settleMode">確定方法</label><select id="settleMode"><option value="sequential" selected>1画ずつ</option><option value="overlap">時間差で重ねる</option></select></div>
@@ -89,9 +84,10 @@
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script>
     <script src="motion-toolkit.js"></script>
     <script src="kanji-data.js"></script>
     <script src="stroke-assemble.js"></script>
-    <script src="tool-ui.js"></script>
+    <script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

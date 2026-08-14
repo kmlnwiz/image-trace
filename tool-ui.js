@@ -2,7 +2,8 @@
 
 (function setupSharedToolUI() {
   const page = document.body.dataset.toolKey || location.pathname.split("/").pop().replace(/\.html$/i, "") || "tool";
-  const presetStorageKey = `motion-lab:presets:${page}:v1`;
+  const presetStorageKey = `motion-lab:presets:${page}:v2`;
+  const legacyPresetStorageKey = `motion-lab:presets:${page}:v1`;
   const pendingStorageKey = `motion-lab:preset-pending:${page}:v1`;
   const noticeStorageKey = "motion-lab:preset-notice:v1";
   const settingsKeys = {
@@ -19,6 +20,8 @@
     "word-conveyor": "motion-lab:word-conveyor-settings:v4",
     "panel-reveal": "motion-lab:panel-reveal-settings:v2",
     "polyomino-motion": "motion-lab:polyomino-motion-settings:v1",
+    "slide-puzzle": "motion-lab:slide-puzzle-settings:v1",
+    "memory-flip": "motion-lab:memory-flip-settings:v1",
   };
   const settingsKey = settingsKeys[page];
 
@@ -36,6 +39,7 @@
   }
 
   buildSharedPanelLayout();
+  window.MotionTools?.mountToolNav();
 
   function showToast(message) {
     const toast = document.querySelector("#toast");
@@ -47,8 +51,24 @@
 
   function readPresets() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(presetStorageKey) || "[]");
-      return Array.isArray(parsed) ? parsed.slice(0, 3) : [];
+      const parsed = JSON.parse(localStorage.getItem(presetStorageKey) || "null");
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall through to the legacy slots below.
+    }
+    return migrateLegacyPresets();
+  }
+
+  // The three numbered slots became a named list; carry whatever was saved over.
+  function migrateLegacyPresets() {
+    try {
+      const legacy = JSON.parse(localStorage.getItem(legacyPresetStorageKey) || "[]");
+      if (!Array.isArray(legacy)) return [];
+      const migrated = legacy
+        .map((preset, index) => (preset ? { ...preset, name: `プリセット ${index + 1}` } : null))
+        .filter(Boolean);
+      if (migrated.length) writePresets(migrated);
+      return migrated;
     } catch {
       return [];
     }
@@ -64,9 +84,14 @@
     return `index:${index}:${control.tagName}:${control.type || ""}`;
   }
 
-  function presetControls() {
-    return [...document.querySelectorAll("main input, main select, main textarea")]
-      .filter((control) => control.type !== "file" && !control.closest(".transport") && control.id !== "timeline");
+  function presetControls(root = document) {
+    const scope = root === document ? document.querySelectorAll("main input, main select, main textarea") : root.querySelectorAll("input, select, textarea");
+    return [...scope]
+      .filter((control) => control.type !== "file"
+        && !control.closest(".transport")
+        && control.id !== "timeline"
+        // The typed mirrors of a slider follow it, so only the slider is stored.
+        && !control.classList.contains("value-input"));
   }
 
   function captureControls() {
@@ -89,10 +114,40 @@
       else if (Object.hasOwn(saved, "value")) control.value = saved.value;
       changed.push(control);
     });
-    changed.forEach((control) => {
+    notifyControls(changed);
+  }
+
+  function notifyControls(controls) {
+    controls.forEach((control) => {
       control.dispatchEvent(new Event("input", { bubbles: true }));
       control.dispatchEvent(new Event("change", { bubbles: true }));
     });
+  }
+
+  // Restores the markup defaults rather than a stored snapshot, so a section
+  // reset always lands on the values the tool shipped with.
+  function resetControlsToDefaults(controls) {
+    controls.forEach((control) => {
+      if (control.tagName === "SELECT") {
+        [...control.options].forEach((option) => { option.selected = option.defaultSelected; });
+        if (control.selectedIndex < 0) control.selectedIndex = 0;
+      } else if (control.type === "checkbox" || control.type === "radio") {
+        control.checked = control.defaultChecked;
+      } else {
+        control.value = control.defaultValue;
+      }
+    });
+    notifyControls(controls);
+  }
+
+  function resetSections() {
+    return [...document.querySelectorAll("main section")]
+      .map((section) => ({
+        section,
+        title: section.querySelector(".section-heading h2, h2")?.textContent?.trim() || "",
+        controls: presetControls(section),
+      }))
+      .filter((entry) => entry.title && entry.controls.length);
   }
 
   function reloadWithNotice(message) {
@@ -109,91 +164,173 @@
   summary.textContent = "プリセット";
   const panel = document.createElement("div");
   panel.className = "tool-preset-panel";
-  const label = document.createElement("label");
-  label.htmlFor = "toolPresetSlot";
-  label.textContent = "保存先";
-  const select = document.createElement("select");
-  select.id = "toolPresetSlot";
-  select.setAttribute("aria-label", "プリセットの保存先");
-  const actions = document.createElement("div");
-  actions.className = "tool-preset-actions";
+
+  const saveRow = document.createElement("div");
+  saveRow.className = "tool-preset-save";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.id = "toolPresetName";
+  nameInput.placeholder = "プリセット名";
+  nameInput.maxLength = 40;
+  nameInput.setAttribute("aria-label", "プリセット名");
   const saveButton = document.createElement("button");
   saveButton.type = "button";
   saveButton.textContent = "保存";
-  const loadButton = document.createElement("button");
-  loadButton.type = "button";
-  loadButton.textContent = "読込";
+  saveRow.append(nameInput, saveButton);
+
+  const listHeading = document.createElement("p");
+  listHeading.className = "tool-preset-heading";
+  listHeading.textContent = "保存済み";
+  const list = document.createElement("div");
+  list.className = "tool-preset-list";
+
+  const resetHeading = document.createElement("p");
+  resetHeading.className = "tool-preset-heading";
+  resetHeading.textContent = "初期化";
+  const resetRow = document.createElement("div");
+  resetRow.className = "tool-preset-reset";
+  const resetSelect = document.createElement("select");
+  resetSelect.id = "toolPresetResetScope";
+  resetSelect.setAttribute("aria-label", "初期化する範囲");
   const resetButton = document.createElement("button");
   resetButton.type = "button";
   resetButton.className = "is-danger";
-  resetButton.textContent = "初期化";
-  actions.append(saveButton, loadButton, resetButton);
-  panel.append(label, select, actions);
+  resetButton.textContent = "リセット";
+  resetRow.append(resetSelect, resetButton);
+
+  panel.append(saveRow, listHeading, list, resetHeading, resetRow);
   menu.append(summary, panel);
 
-  function refreshSlots() {
-    const presets = readPresets();
-    const selected = select.value || "0";
-    select.replaceChildren();
-    for (let index = 0; index < 3; index += 1) {
+  function refreshResetScopes() {
+    const sections = resetSections();
+    resetSelect.replaceChildren();
+    const all = document.createElement("option");
+    all.value = "all";
+    all.textContent = "すべての設定";
+    resetSelect.append(all);
+    sections.forEach((entry, index) => {
       const option = document.createElement("option");
       option.value = String(index);
-      option.textContent = presets[index] ? `プリセット ${index + 1} ・ 保存済み` : `プリセット ${index + 1} ・ 空き`;
-      select.append(option);
-    }
-    select.value = selected;
-    loadButton.disabled = !presets[Number(select.value)];
+      option.textContent = entry.title;
+      resetSelect.append(option);
+    });
   }
 
-  const rightGroup = header.querySelector(".header-actions, .header-nav, .dial-nav, .kanji-nav");
-  if (rightGroup) rightGroup.prepend(menu);
-  else header.append(menu);
-
-  select.addEventListener("change", refreshSlots);
-  saveButton.addEventListener("click", () => {
-    try {
-      const presets = readPresets();
-      const index = Number(select.value);
-      presets[index] = {
-        savedAt: new Date().toISOString(),
-        settings: localStorage.getItem(settingsKey),
-        controls: captureControls(),
-      };
-      writePresets(presets);
-      refreshSlots();
-      menu.open = false;
-      showToast(`プリセット ${index + 1} に保存しました`);
-    } catch {
-      showToast("プリセットを保存できませんでした");
+  function refreshList() {
+    const presets = readPresets();
+    list.replaceChildren();
+    if (!presets.length) {
+      const empty = document.createElement("p");
+      empty.className = "tool-preset-empty";
+      empty.textContent = "保存されたプリセットはありません。";
+      list.append(empty);
+      return;
     }
-  });
-  loadButton.addEventListener("click", () => {
+    presets.forEach((preset, index) => {
+      const row = document.createElement("div");
+      row.className = "tool-preset-row";
+      const name = document.createElement("span");
+      name.className = "tool-preset-name";
+      name.textContent = preset.name || `プリセット ${index + 1}`;
+      name.title = preset.savedAt ? new Date(preset.savedAt).toLocaleString("ja-JP") : "";
+      const loadButton = document.createElement("button");
+      loadButton.type = "button";
+      loadButton.textContent = "読込";
+      loadButton.addEventListener("click", () => loadPreset(index));
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "is-danger";
+      deleteButton.textContent = "削除";
+      deleteButton.setAttribute("aria-label", `${name.textContent} を削除`);
+      deleteButton.textContent = "×";
+      deleteButton.addEventListener("click", () => deletePreset(index));
+      row.append(name, loadButton, deleteButton);
+      list.append(row);
+    });
+  }
+
+  function loadPreset(index) {
     try {
-      const index = Number(select.value);
       const preset = readPresets()[index];
       if (!preset) return;
       if (typeof preset.settings === "string") localStorage.setItem(settingsKey, preset.settings);
       else localStorage.removeItem(settingsKey);
       sessionStorage.setItem(pendingStorageKey, JSON.stringify(preset.controls || {}));
-      reloadWithNotice(`プリセット ${index + 1} を読み込みました`);
+      reloadWithNotice(`「${preset.name || "プリセット"}」を読み込みました`);
     } catch {
       showToast("プリセットを読み込めませんでした");
     }
+  }
+
+  function deletePreset(index) {
+    try {
+      const presets = readPresets();
+      const [removed] = presets.splice(index, 1);
+      writePresets(presets);
+      refreshList();
+      showToast(`「${removed?.name || "プリセット"}」を削除しました`);
+    } catch {
+      showToast("プリセットを削除できませんでした");
+    }
+  }
+
+  const rightGroup = header.querySelector(".header-actions, .header-nav, .dial-nav, .kanji-nav");
+  const switcher = rightGroup?.querySelector(".tool-switcher");
+  if (switcher) rightGroup.insertBefore(menu, switcher);
+  else if (rightGroup) rightGroup.prepend(menu);
+  else header.append(menu);
+
+  saveButton.addEventListener("click", () => {
+    try {
+      const presets = readPresets();
+      const name = nameInput.value.trim() || `プリセット ${presets.length + 1}`;
+      const entry = { name, savedAt: new Date().toISOString(), settings: localStorage.getItem(settingsKey), controls: captureControls() };
+      // Saving under an existing name overwrites it instead of piling up duplicates.
+      const existing = presets.findIndex((preset) => (preset?.name || "") === name);
+      if (existing >= 0) presets[existing] = entry;
+      else presets.push(entry);
+      writePresets(presets);
+      nameInput.value = "";
+      refreshList();
+      showToast(`「${name}」に保存しました`);
+    } catch {
+      showToast("プリセットを保存できませんでした");
+    }
   });
+  nameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveButton.click();
+    }
+  });
+
   resetButton.addEventListener("click", () => {
     try {
-      localStorage.removeItem(settingsKey);
-      sessionStorage.removeItem(pendingStorageKey);
-      reloadWithNotice("設定を初期値へ戻しました");
+      if (resetSelect.value === "all") {
+        localStorage.removeItem(settingsKey);
+        sessionStorage.removeItem(pendingStorageKey);
+        reloadWithNotice("設定を初期値へ戻しました");
+        return;
+      }
+      const entry = resetSections()[Number(resetSelect.value)];
+      if (!entry) return;
+      resetControlsToDefaults(entry.controls);
+      menu.open = false;
+      showToast(`「${entry.title}」を初期値へ戻しました`);
     } catch {
       showToast("設定を初期化できませんでした");
     }
   });
+
   document.addEventListener("click", (event) => {
     if (menu.open && !menu.contains(event.target)) menu.open = false;
   });
+  menu.addEventListener("toggle", () => {
+    if (menu.open) refreshResetScopes();
+  });
 
-  refreshSlots();
+  refreshList();
+  refreshResetScopes();
   try {
     const pending = sessionStorage.getItem(pendingStorageKey);
     if (pending) {
