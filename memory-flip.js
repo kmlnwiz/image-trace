@@ -318,16 +318,7 @@ function panelLayout() {
   };
 }
 
-function roundedRect(ctx, x, y, width, height, radius) {
-  const limit = Math.max(0, Math.min(radius, Math.min(Math.abs(width), height) / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + limit, y);
-  ctx.arcTo(x + width, y, x + width, y + height, limit);
-  ctx.arcTo(x + width, y + height, x, y + height, limit);
-  ctx.arcTo(x, y + height, x, y, limit);
-  ctx.arcTo(x, y, x + width, y, limit);
-  ctx.closePath();
-}
+const roundedRect = MotionToolkit.roundedRectPath;
 
 function drawPanel(panel, layout, seconds) {
   const amount = panelFlip(panel, seconds);

@@ -301,16 +301,7 @@ function refreshSource() {
   sourceContext.fillText(text, width / 2, height / 2);
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const limit = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + limit, y);
-  ctx.arcTo(x + width, y, x + width, y + height, limit);
-  ctx.arcTo(x + width, y + height, x, y + height, limit);
-  ctx.arcTo(x, y + height, x, y, limit);
-  ctx.arcTo(x, y, x + width, y, limit);
-  ctx.closePath();
-}
+const roundedRectPath = MotionToolkit.roundedRectPath;
 
 function render(playhead = 0) {
   const width = elements.canvas.width;

@@ -134,6 +134,20 @@
     return { width, height };
   }
 
+  // Six tools carried their own copy of this. The width may be negative or near
+  // zero while a panel is mid flip, so the radius is clamped against the
+  // magnitude and never goes below zero.
+  function roundedRectPath(ctx, x, y, width, height, radius) {
+    const limit = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + limit, y);
+    ctx.arcTo(x + width, y, x + width, y + height, limit);
+    ctx.arcTo(x + width, y + height, x, y + height, limit);
+    ctx.arcTo(x, y + height, x, y, limit);
+    ctx.arcTo(x, y, x + width, y, limit);
+    ctx.closePath();
+  }
+
   function greatestCommonDivisor(a, b) {
     let left = Math.abs(a);
     let right = Math.abs(b);
@@ -726,6 +740,7 @@
     containRect,
     outputDimensions,
     resizeOutputCanvas,
+    roundedRectPath,
     downloadBlob,
     renderWebm,
     createPlayer,

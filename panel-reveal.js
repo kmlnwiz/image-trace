@@ -274,16 +274,7 @@ function flipAmount(panel, progress) {
   return MotionToolkit.ease(local, elements.easing.value);
 }
 
-function roundedRect(ctx, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + safeRadius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
-  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
-  ctx.arcTo(x, y + height, x, y, safeRadius);
-  ctx.arcTo(x, y, x + width, y, safeRadius);
-  ctx.closePath();
-}
+const roundedRect = MotionToolkit.roundedRectPath;
 
 function panelLayout() {
   const rows = Math.max(1, state.lines.length);

@@ -7,14 +7,15 @@
 (function exposeMotionControls() {
   const NUMBER_PATTERN = /-?\d+(?:[.,]\d+)?/;
 
-  function splitValue(text) {
-    const source = String(text ?? "");
+  // The value display carries the number plus whatever the tool appends to it
+  // ("2.0 秒 / 120f"). Only the trailing part is needed here: the number itself
+  // always comes from the slider, so the two can never drift apart, and a
+  // display that spells its value out in words ("標準") still gets a field.
+  function unitOf(text) {
+    const source = String(text ?? "").trim();
     const match = source.match(NUMBER_PATTERN);
-    if (!match) return null;
-    return {
-      number: match[0].replace(",", "."),
-      unit: source.slice(match.index + match[0].length).trim(),
-    };
+    if (!match) return source;
+    return source.slice(match.index + match[0].length).trim();
   }
 
   function snapToStep(value, range) {
@@ -49,8 +50,6 @@
   function upgradeRange(range) {
     const output = findOutput(range);
     if (!output || output.dataset.valueField === "on") return;
-    const initial = splitValue(output.textContent);
-    if (!initial) return;
 
     const field = document.createElement("span");
     field.className = "value-field";
@@ -60,10 +59,10 @@
     input.inputMode = "decimal";
     input.autocomplete = "off";
     input.spellcheck = false;
-    input.value = initial.number;
+    input.value = range.value;
     const unit = document.createElement("span");
     unit.className = "value-input-unit";
-    unit.textContent = initial.unit;
+    unit.textContent = unitOf(output.textContent);
     const labelText = document.querySelector(`label[for="${CSS.escape(range.id)}"] span`)?.textContent?.trim();
     input.setAttribute("aria-label", labelText ? `${labelText}（数値入力）` : `${range.id} の数値`);
     field.append(input, unit);
@@ -73,11 +72,9 @@
     output.after(field);
 
     function pull() {
-      const parts = splitValue(output.textContent);
-      if (!parts) return;
-      unit.textContent = parts.unit;
+      unit.textContent = unitOf(output.textContent);
       if (document.activeElement === input) return;
-      input.value = parts.number;
+      input.value = range.value;
       input.classList.remove("is-invalid");
     }
 
@@ -129,6 +126,10 @@
     });
 
     new MutationObserver(pull).observe(output, { childList: true, characterData: true, subtree: true });
+    // Dragging the slider, or a tool clamping it, has to be reflected too — the
+    // display text does not always change when the value does.
+    range.addEventListener("input", pull);
+    range.addEventListener("change", pull);
     pull();
   }
 
@@ -138,11 +139,30 @@
       .forEach(upgradeRange);
   }
 
-  window.MotionControls = { upgradeNumericFields };
+  // Thirteen tools each re-stated "write the hex back into the swatch label".
+  // Doing it here keeps that wiring out of every new tool.
+  function syncColorOutputs(root = document) {
+    [...root.querySelectorAll('.color-control input[type="color"]')].forEach((control) => {
+      const output = control.nextElementSibling;
+      if (!output || output.tagName !== "OUTPUT" || control.dataset.colorSync === "on") return;
+      control.dataset.colorSync = "on";
+      const write = () => { output.value = control.value.toUpperCase(); };
+      control.addEventListener("input", write);
+      control.addEventListener("change", write);
+      write();
+    });
+  }
+
+  window.MotionControls = { upgradeNumericFields, syncColorOutputs };
+
+  function upgradeAll() {
+    upgradeNumericFields();
+    syncColorOutputs();
+  }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => upgradeNumericFields(), { once: true });
+    document.addEventListener("DOMContentLoaded", upgradeAll, { once: true });
   } else {
-    upgradeNumericFields();
+    upgradeAll();
   }
 })();
