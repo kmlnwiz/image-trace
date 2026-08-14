@@ -159,7 +159,35 @@ async function setImage(image, name, bytes = 0, url = "") {
   if (state.imageUrl) URL.revokeObjectURL(state.imageUrl); state.image = image; state.imageName = name; state.imageBytes = bytes; state.imageUrl = url; updateImageUI(); player.reset(); player.update(); render();
 }
 
-elements.fileInput.addEventListener("change", async () => { const [file] = elements.fileInput.files; elements.fileInput.value = ""; if (!file) return; try { const loaded = await MotionToolkit.loadImageFile(file); await setImage(loaded.image, loaded.name, loaded.bytes, loaded.url); player.showToast("画像を読み込みました"); } catch (error) { player.showToast(error.message); } });
+async function handleImageFile(file) {
+  if (!file) return;
+  try {
+    const loaded = await MotionToolkit.loadImageFile(file);
+    await setImage(loaded.image, loaded.name, loaded.bytes, loaded.url);
+    player.showToast("画像を読み込みました");
+  } catch (error) {
+    player.showToast(error.message);
+  } finally {
+    elements.fileInput.value = "";
+  }
+}
+
+elements.fileInput.addEventListener("change", () => handleImageFile(elements.fileInput.files?.[0]));
+elements.fileSummary.addEventListener("click", () => elements.fileInput.click());
+["dragenter", "dragover"].forEach((eventName) => {
+  elements.fileSummary.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.fileSummary.classList.add("is-dragging");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  });
+});
+["dragleave", "drop"].forEach((eventName) => {
+  elements.fileSummary.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.fileSummary.classList.remove("is-dragging");
+  });
+});
+elements.fileSummary.addEventListener("drop", (event) => handleImageFile(event.dataTransfer?.files?.[0]));
 elements.sample.addEventListener("click", async () => setImage(await makeSample(), "sample-slices.png"));
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => { rebuildPieces(); player.reset(); saveSettings(); render(); }));

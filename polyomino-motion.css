@@ -1,0 +1,140 @@
+@import url("./studio-tools.css");
+
+body.polyomino-motion {
+  --tool-accent: #d85c45;
+  --tool-accent-soft: #fae7e1;
+}
+
+.polyomino-motion .brand-mark.tool-mark {
+  background: linear-gradient(135deg, #d85c45 0 50%, #e7a83e 50%);
+}
+
+.polyomino-input {
+  min-height: 82px;
+  resize: vertical;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .035em;
+}
+
+.grid-size-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  gap: 7px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.grid-size-controls > span {
+  align-self: center;
+  padding-top: 17px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.grid-size-controls label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.grid-size-controls select {
+  width: 100%;
+}
+
+.mino-size-row select {
+  max-width: 150px;
+}
+
+.mino-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 11px;
+}
+
+.mino-summary span {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 8px 3px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: center;
+  background: #f8fafb;
+}
+
+.mino-summary b {
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.polyomino-motion .stage-panel {
+  background: #e7ebed;
+}
+
+.polyomino-motion #previewCanvas {
+  width: min(100%, calc((100vh - 250px) * 1.6));
+  aspect-ratio: 16 / 10;
+  background: #f2eee5;
+}
+
+.polyomino-motion .check-row {
+  margin-top: 13px;
+}
+
+.placement-note {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafb;
+}
+
+.placement-note > span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: white;
+  font-size: 17px;
+  background: var(--tool-accent);
+}
+
+.placement-note div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.placement-note strong {
+  font-size: 10px;
+}
+
+.placement-note small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .polyomino-motion .control-panel-left {
+    display: block;
+  }
+
+  .polyomino-motion #previewCanvas {
+    width: 100%;
+  }
+}

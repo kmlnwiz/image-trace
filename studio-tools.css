@@ -360,8 +360,8 @@ body {
 
 .panel-timing-grid button.is-settled {
   color: #e0041d;
-  border-color: var(--settled-color, #d86f2f);
-  box-shadow: inset 0 -3px var(--settled-color, #d86f2f);
+  border-color: var(--settled-color, #D83131);
+  box-shadow: inset 0 -3px var(--settled-color, #D83131);
 }
 
 .panel-timing-grid button.is-active.is-settled {

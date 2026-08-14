@@ -8,6 +8,8 @@
 
 .tool-page {
   min-width: 900px;
+  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--ink);
   background: var(--page);
 }
@@ -77,6 +79,7 @@
 
 .tool-page .tool-shell {
   height: calc(100vh - var(--ui-header-height));
+  height: calc(100dvh - var(--ui-header-height));
   min-height: 0;
   display: grid;
   grid-template-columns: var(--ui-sidebar-width) minmax(440px, 1fr) var(--ui-sidebar-width);
@@ -160,6 +163,48 @@
   line-height: 1.55;
 }
 
+.tool-page .image-picker {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 20px;
+  gap: 11px;
+  align-items: center;
+  margin: 0 0 10px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  text-align: left;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.tool-page .image-picker:hover,
+.tool-page .image-picker.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tool-page .image-picker:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tool-page .image-picker .file-thumbnail {
+  width: 46px;
+  height: 40px;
+  aspect-ratio: auto;
+}
+
+.tool-page .image-picker .file-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 700;
+}
+
 .tool-page .button {
   min-height: 36px;
   border-radius: 6px;
@@ -199,7 +244,7 @@
 .tool-page .tool-stage > .transport {
   min-height: 68px;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 12px 20px max(12px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.92);
 }
@@ -347,6 +392,34 @@
 
 @media (max-width: 1180px) {
   :root { --ui-sidebar-width: 272px; }
+  .tool-page {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tool-page .tool-shell,
+  .tool-page .tool-shell.tool-shell-compact {
+    height: auto;
+    min-height: calc(100vh - var(--ui-header-height));
+    min-height: calc(100dvh - var(--ui-header-height));
+  }
+  .tool-page .tool-shell:not(.tool-shell-compact) {
+    grid-template-columns: var(--ui-sidebar-width) minmax(440px, 1fr);
+  }
+  .tool-page .tool-sidebar {
+    overflow: visible;
+  }
+  .tool-page .tool-sidebar-right {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .tool-page .tool-sidebar-right > :where(.control-section, .panel-section) {
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
   .tool-page .tool-shell.tool-shell-compact { grid-template-columns: 300px minmax(420px, 1fr); }
   .tool-page :where(.header-nav, .dial-nav, .kanji-nav) > a:not(.home-link) { display: none; }
 }
@@ -373,6 +446,15 @@
   .tool-page .tool-sidebar {
     overflow: visible;
     border: 0;
+  }
+
+  .tool-page .tool-sidebar-right {
+    display: block;
+  }
+
+  .tool-page .tool-sidebar-right > :where(.control-section, .panel-section) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .tool-page .tool-stage {

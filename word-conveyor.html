@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Word Conveyor</title>
+    <link rel="stylesheet" href="typography-tools.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
+  </head>
+  <body class="tool-page typography-tools word-conveyor" data-tool-key="word-conveyor">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る">
+        <span class="brand-mark tool-mark" aria-hidden="true">送</span>
+        <div><h1>Word Conveyor</h1><p>電光掲示板のように1文を循環する</p></div>
+      </a>
+      <nav class="header-nav" aria-label="ツール">
+        <a href="./text-dial.html">Dial Type</a>
+        <a href="./text-reel.html">Text Reel</a>
+        <a class="home-link" href="./index.html" aria-label="ホーム">⌂</a>
+      </nav>
+    </header>
+
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="文章とデザインの設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>文章</h2><output id="characterCount" class="meta-value">28 / 60</output></div>
+          <input id="textInput" class="text-input" type="text" value="ひらがな・カタカナ・ALPHABETをつなげて流す" maxlength="240" autocomplete="off" spellcheck="false" />
+          <p class="field-hint">入力した1文を繰り返し配置し、切れ目なく流します。</p>
+          <div class="script-note" aria-label="対応文字"><span>ひらがな</span><span>カタカナ</span><span>英字</span></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>掲示板</h2></div>
+          <div class="field-row select-row"><label for="direction">流れる方向</label><select id="direction"><option value="left" selected>右から左</option><option value="right">左から右</option></select></div>
+          <label class="field-row" for="sentenceGap"><span>文の間隔</span><output id="sentenceGapValue">16 px</output></label>
+          <input id="sentenceGap" class="range" type="range" min="0" max="120" step="2" value="16" />
+          <button id="randomStartButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>開始位置をランダムにする</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>デザイン</h2></div>
+          <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
+          <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
+          <label class="field-row" for="fontSize"><span>文字サイズ</span><output id="fontSizeValue">320 px</output></label>
+          <input id="fontSize" class="range" type="range" min="100" max="480" step="2" value="320" />
+          <div class="field-row color-row"><label for="textColor">発光文字</label><span class="color-control"><input id="textColor" type="color" value="#ffb52e" /><output>#FFB52E</output></span></div>
+          <div class="field-row color-row"><label for="cardColor">表示面</label><span class="color-control"><input id="cardColor" type="color" value="#101417" /><output>#101417</output></span></div>
+          <div class="field-row color-row"><label for="beltColor">フレーム</label><span class="color-control"><input id="beltColor" type="color" value="#293640" /><output>#293640</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#dfe5e8" /><output>#DFE5E8</output></span></div>
+        </section>
+      </aside>
+
+      <section class="stage-panel tool-stage" aria-label="ワードコンベアプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span>16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">右から左へループ</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="1文が電光掲示板上を停止せず循環するアニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:05.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>ループ</h2><output id="durationValue" class="meta-value">5.0 秒 / 周</output></div>
+          <label class="field-row" for="duration"><span>1周の時間</span><output>最大90秒</output></label>
+          <input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="5" />
+          <p class="field-hint">プレビューは停止せず再生し、動画は継ぎ目のない1周分を書き出します。</p>
+        </section>
+        <section class="control-section export-section">
+          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
+          <dl class="export-summary"><div><dt>サイズ</dt><dd>1600 × 1000</dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl>
+          <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">2.5 秒</output></label>
+          <input id="imageTime" class="range" type="range" min="0" max="5" step="0.1" value="2.5" />
+          <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>
+          <button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button>
+          <div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
+        </section>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="word-conveyor.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

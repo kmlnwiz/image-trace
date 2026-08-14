@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f7" />
+    <title>Polyomino Type</title>
+    <link rel="stylesheet" href="polyomino-motion.css" />
+    <link rel="stylesheet" href="tool-ui.css" />
+  </head>
+  <body class="tool-page polyomino-motion" data-tool-key="polyomino-motion">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">▦</span><div><h1>Polyomino Type</h1><p>ばらけた文字のミノを、読める盤面へ戻す</p></div></a>
+      <nav class="header-nav" aria-label="ツール"><a href="./panel-reveal.html">Panel Reveal</a><a href="./slice-motion.html">Slice Motion</a><a class="home-link" href="./index.html" aria-label="ホーム">⌂</a></nav>
+    </header>
+
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="文字とポリオミノの設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>文字列</h2><output id="characterCount" class="meta-value">25 / 25</output></div>
+          <textarea id="textInput" class="text-area polyomino-input" rows="3" maxlength="400" spellcheck="false">POLYOMINO MOTION LAB 2026</textarea>
+          <p id="textHint" class="field-hint">完成すると、左上から右へ正しい順番で読めます。改行は詰めて配置します。</p>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>グリッド</h2><output id="gridArea" class="meta-value">25 マス</output></div>
+          <div class="grid-size-controls">
+            <label for="gridColumns"><span>横</span><select id="gridColumns" aria-label="横のグリッド数">
+              <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            </select></label>
+            <span aria-hidden="true">×</span>
+            <label for="gridRows"><span>縦</span><select id="gridRows" aria-label="縦のグリッド数">
+              <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            </select></label>
+          </div>
+          <div class="field-row select-row mino-size-row"><label for="minoSize">1ミノのマス数</label><select id="minoSize"><option value="5" selected>5 マス / 5 ミノ</option></select></div>
+          <p class="field-hint">盤面を割り切れるマス数だけ選べます。各ミノは辺でつながった同じマス数の形です。</p>
+          <div id="minoSummary" class="mino-summary"><span><b>5</b> マス / ミノ</span><span><b>5</b> ミノ</span><span><b>25</b> マス</span></div>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>形と初期配置を再抽選</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>見た目</h2></div>
+          <div class="field-row select-row"><label for="palette">配色</label><select id="palette"><option value="warm" selected>ウォーム</option><option value="ocean">オーシャン</option><option value="candy">キャンディ</option><option value="mono">モノクロ</option></select></div>
+          <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
+          <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
+          <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#172128" /><output>#172128</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#F2EEE5" /><output>#F2EEE5</output></span></div>
+        </section>
+      </aside>
+
+      <section class="stage-panel tool-stage" aria-label="ポリオミノ組み立てプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span>16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 5 ミノ 確定</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="文字の入ったポリオミノが散らばった状態から盤面へ戻るアニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:06.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>戻り方</h2><output id="durationValue" class="meta-value">6.0 秒</output></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output>最大90秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
+          <label class="field-row" for="moveDuration"><span>1ミノの移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="6" step="0.1" value="2" />
+          <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="simultaneous">同時</option></select></div>
+          <label class="field-row" for="stagger"><span>開始の時間差</span><output id="staggerValue">68% · 0.68秒 / 41f</output></label><input id="stagger" class="range" type="range" min="0" max="100" step="1" value="68" />
+          <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>初期配置</h2></div>
+          <div class="placement-note"><span aria-hidden="true">↻</span><div><strong>90°単位でランダム回転</strong><small>ミノ同士と完成グリッドを重ねず、空いている側へ整列します。</small></div></div>
+          <label class="check-row"><input id="showGuide" type="checkbox" checked /><span>完成位置のガイドを表示</span></label>
+        </section>
+
+        <section class="control-section export-section">
+          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
+          <dl class="export-summary"><div><dt>サイズ</dt><dd>1600 × 1000</dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl>
+          <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" />
+          <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
+        </section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script><script src="motion-toolkit.js"></script><script src="polyomino-motion.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

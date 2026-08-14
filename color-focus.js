@@ -737,6 +737,7 @@ elements.exportButton.addEventListener("click", exportPng);
   elements.dropZone.addEventListener(eventName, (event) => {
     event.preventDefault();
     elements.dropZone.classList.add("is-dragging");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
   });
 });
 

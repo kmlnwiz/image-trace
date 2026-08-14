@@ -179,16 +179,23 @@
     function tick(timestamp) {
       if (!state.isPlaying) return;
       const speed = Number(elements.speed?.value || 1);
-      state.playhead = clamp((timestamp - state.startedAt) * speed / (duration() * 1000), 0, 1);
+      const rawPlayhead = (timestamp - state.startedAt) * speed / (duration() * 1000);
+      state.playhead = options.loop ? rawPlayhead % 1 : clamp(rawPlayhead, 0, 1);
       render();
       update();
-      if (state.playhead >= 1) {
+      if (options.loop) {
+        if (rawPlayhead >= 1) {
+          state.startedAt += Math.floor(rawPlayhead) * duration() * 1000 / speed;
+          options.onLoop?.();
+        }
+        state.rafId = requestAnimationFrame(tick);
+      } else if (state.playhead >= 1) {
         state.isPlaying = false;
         update();
         options.onFinish?.();
-        return;
+      } else {
+        state.rafId = requestAnimationFrame(tick);
       }
-      state.rafId = requestAnimationFrame(tick);
     }
 
     function play() {

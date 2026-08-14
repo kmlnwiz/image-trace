@@ -644,6 +644,25 @@ elements.fileInput.addEventListener("change", () => {
   elements.fileInput.value = "";
 });
 
+elements.fileSummary.addEventListener("click", () => elements.fileInput.click());
+
+["dragenter", "dragover"].forEach((eventName) => {
+  elements.fileSummary.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.fileSummary.classList.add("is-dragging");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  });
+});
+
+["dragleave", "drop"].forEach((eventName) => {
+  elements.fileSummary.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    elements.fileSummary.classList.remove("is-dragging");
+  });
+});
+
+elements.fileSummary.addEventListener("drop", (event) => loadFile(event.dataTransfer?.files?.[0]));
+
 elements.sampleButton.addEventListener("click", async () => {
   const image = await makeSampleImage();
   await processImage(image, "sample-shape.png");

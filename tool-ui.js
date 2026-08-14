@@ -16,6 +16,9 @@
     "flip-panels": "motion-lab:flip-panels-settings:v1",
     "stroke-assemble": "motion-lab:stroke-assemble-settings:v1",
     "radical-highlight": "motion-lab:radical-highlight-settings:v1",
+    "word-conveyor": "motion-lab:word-conveyor-settings:v4",
+    "panel-reveal": "motion-lab:panel-reveal-settings:v2",
+    "polyomino-motion": "motion-lab:polyomino-motion-settings:v1",
   };
   const settingsKey = settingsKeys[page];
 
