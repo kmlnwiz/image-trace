@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#f4f6f7" /><title>Noise Plasma</title><link rel="stylesheet" href="background-tools.css" /><link rel="stylesheet" href="tool-ui.css" /></head>
+  <body class="tool-page noise-plasma" data-tool-key="noise-plasma">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">雲</span><div><h1>Noise Plasma</h1><p>うねる有機的な背景</p></div></a>
+      <div class="header-actions"><button id="seedButton" class="button button-secondary" type="button">模様を変える</button></div>
+    </header>
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="模様と色の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>模様</h2><output id="resolutionSummary" class="meta-value">400 × 250</output></div>
+          <label class="field-row" for="layers"><span>波の数</span><output id="layersValue">4</output></label><input id="layers" class="range" type="range" min="1" max="8" step="1" value="4" />
+          <label class="field-row" for="scale"><span>細かさ</span><output id="scaleValue">4</output></label><input id="scale" class="range" type="range" min="1" max="20" step="1" value="4" />
+          <label class="field-row" for="warp"><span>歪み</span><output id="warpValue">30%</output></label><input id="warp" class="range" type="range" min="0" max="150" step="1" value="30" />
+          <label class="field-row" for="contrast"><span>コントラスト</span><output id="contrastValue">120%</output></label><input id="contrast" class="range" type="range" min="40" max="300" step="5" value="120" />
+          <label class="field-row" for="resolution"><span>描画の粗さ</span><output id="resolutionValue">4 倍</output></label><input id="resolution" class="range" type="range" min="1" max="12" step="1" value="4" />
+          <p class="field-hint">粗さを小さくするほど輪郭が滑らかになり、書き出しに時間がかかります。</p>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>色</h2></div>
+          <div class="field-row select-row"><label for="colorCount">色数</label><select id="colorCount"><option value="2">2色</option><option value="3" selected>3色</option><option value="4">4色</option><option value="5">5色</option></select></div>
+          <div class="palette-grid">
+            <span class="color-control"><input id="color1" type="color" value="#12384C" /><output>#12384C</output></span>
+            <span class="color-control"><input id="color2" type="color" value="#1A9AAE" /><output>#1A9AAE</output></span>
+            <span class="color-control"><input id="color3" type="color" value="#F3B64F" /><output>#F3B64F</output></span>
+            <span class="color-control"><input id="color4" type="color" value="#E0041D" /><output>#E0041D</output></span>
+            <span class="color-control"><input id="color5" type="color" value="#F2EDE3" /><output>#F2EDE3</output></span>
+          </div>
+          <div class="field-row select-row"><label for="blend">切り替え</label><select id="blend"><option value="smooth" selected>なめらか</option><option value="step">段階</option></select></div>
+          <label class="field-row" for="repeat"><span>色の繰り返し</span><output id="repeatValue">1回</output></label><input id="repeat" class="range" type="range" min="1" max="6" step="1" value="1" />
+        </section>
+      </aside>
+      <section class="stage-panel tool-stage pattern-stage" aria-label="プラズマ模様のプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">4波 · 3色</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="うねる有機的な背景アニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:08.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>動き</h2></div>
+          <label class="field-row" for="cycles"><span>周回数</span><output id="cyclesValue">1周</output></label><input id="cycles" class="range" type="range" min="1" max="6" step="1" value="1" />
+          <label class="field-row" for="grain"><span>粒状ノイズ</span><output id="grainValue">6%</output></label><input id="grain" class="range" type="range" min="0" max="60" step="1" value="6" />
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">8.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="8" />
+          <p class="loop-note"><strong>ループ</strong>各波の位相が整数回だけ進むので、末尾と先頭がつながります。</p>
+        </section>
+        <section class="control-section export-section"><div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div><dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="800">800 × 800</option><option value="1600x900">1600 × 900</option><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl><label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">4.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="8" step="0.1" value="4" /><button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div></section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-pattern.js"></script><script src="noise-plasma.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>
