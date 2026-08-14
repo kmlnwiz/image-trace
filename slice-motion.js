@@ -9,6 +9,7 @@ const elements = {
   gap: document.querySelector("#gap"), gapValue: document.querySelector("#gapValue"), backgroundColor: document.querySelector("#backgroundColor"), fade: document.querySelector("#fade"),
   direction: document.querySelector("#direction"), order: document.querySelector("#order"), distance: document.querySelector("#distance"), distanceValue: document.querySelector("#distanceValue"),
   stagger: document.querySelector("#stagger"), staggerValue: document.querySelector("#staggerValue"), duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"),
+  moveDuration: document.querySelector("#moveDuration"), moveDurationValue: document.querySelector("#moveDurationValue"),
   easing: document.querySelector("#easing"), shuffle: document.querySelector("#shuffleButton"), stageStatus: document.querySelector("#stageStatus"), canvasMessage: document.querySelector("#canvasMessage"),
   previewSpeed: document.querySelector("#previewSpeed"), imageTime: document.querySelector("#imageTime"),
 };
@@ -17,7 +18,7 @@ const state = { image: null, imageName: "sample-slices.png", imageBytes: 0, imag
 let player = null;
 
 function saveSettings() {
-  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value });
+  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, moveDuration: elements.moveDuration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value });
 }
 
 function restoreSettings() {
@@ -25,7 +26,7 @@ function restoreSettings() {
   if (!settings || typeof settings !== "object") return;
   if (["vertical", "horizontal", "grid"].includes(settings.layout)) state.layout = settings.layout;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  ["imageFit", "columns", "rows", "gap", "backgroundColor", "direction", "order", "distance", "stagger", "duration", "easing", "previewSpeed", "imageTime"].forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+  ["imageFit", "columns", "rows", "gap", "backgroundColor", "direction", "order", "distance", "stagger", "duration", "moveDuration", "easing", "previewSpeed", "imageTime"].forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   if (typeof settings.fade === "boolean") elements.fade.checked = settings.fade;
 }
 
@@ -59,16 +60,24 @@ function rankFor(piece) {
   if (mode === "simultaneous") return 0;
   if (mode === "random") return piece.randomRank;
   const linear = piece.index;
-  if (mode === "center") return Math.round(Math.abs(linear - (count - 1) / 2) * 2);
-  if (mode === "edges") return Math.round(Math.min(linear, count - 1 - linear) * 2);
+  if (mode === "center") return Math.floor(Math.abs(linear - (count - 1) / 2));
+  if (mode === "edges") return Math.min(linear, count - 1 - linear);
   return linear;
 }
 
-function amountFor(piece, progress) {
+function sliceMoveTime() {
+  return MotionToolkit.clamp(Number(elements.moveDuration.value), 0.1, Number(elements.duration.value));
+}
+
+function sliceStartInterval() {
+  if (elements.order.value === "simultaneous" || state.pieces.length <= 1) return 0;
   const maxRank = Math.max(1, ...state.pieces.map(rankFor));
-  const delaySpan = elements.order.value === "simultaneous" ? 0 : Number(elements.stagger.value) / 100;
-  const delay = delaySpan * rankFor(piece) / maxRank;
-  const local = MotionToolkit.clamp((progress - delay) / Math.max(0.001, 1 - delay), 0, 1);
+  return Math.max(0, Number(elements.duration.value) - sliceMoveTime()) * Number(elements.stagger.value) / 100 / maxRank;
+}
+
+function amountFor(piece, progress) {
+  const delay = sliceStartInterval() * rankFor(piece);
+  const local = MotionToolkit.clamp((progress * Number(elements.duration.value) - delay) / sliceMoveTime(), 0, 1);
   return MotionToolkit.ease(local, elements.easing.value);
 }
 
@@ -132,7 +141,13 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.rowsControl.hidden = state.layout !== "grid";
   elements.columnsLabel.textContent = state.layout === "grid" ? "列数" : "分割数";
   elements.columnsValue.value = elements.columns.value; elements.rowsValue.value = elements.rows.value; elements.gapValue.value = `${elements.gap.value} px`;
-  elements.distanceValue.value = `${elements.distance.value}%`; elements.staggerValue.value = `${elements.stagger.value}%`; elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
+  elements.distanceValue.value = `${elements.distance.value}%`; elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
+  elements.moveDuration.max = elements.duration.value;
+  if (Number(elements.moveDuration.value) > Number(elements.duration.value)) elements.moveDuration.value = elements.duration.value;
+  const moveTime = sliceMoveTime(); const interval = sliceStartInterval();
+  elements.moveDurationValue.value = `${moveTime.toFixed(1)} 秒 / ${Math.round(moveTime * 60)}f`;
+  elements.staggerValue.value = elements.order.value === "simultaneous" ? "同時" : `${elements.stagger.value}% · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
+  elements.stagger.disabled = elements.order.value === "simultaneous";
   elements.pieceCount.value = `${state.pieces.length}枚`; elements.backgroundColor.nextElementSibling.value = elements.backgroundColor.value.toUpperCase();
   const names = { vertical: "縦分割", horizontal: "横分割", grid: "グリッド" };
   const fixed = state.pieces.filter((piece) => amountFor(piece, progress) >= 0.999).length;
@@ -191,7 +206,7 @@ elements.fileSummary.addEventListener("drop", (event) => handleImageFile(event.d
 elements.sample.addEventListener("click", async () => setImage(await makeSample(), "sample-slices.png"));
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => { rebuildPieces(); player.reset(); saveSettings(); render(); }));
-[elements.gap, elements.distance, elements.stagger, elements.duration].forEach((control) => control.addEventListener("input", () => { player.reset(); updateLabels(); saveSettings(); render(); }));
+[elements.gap, elements.distance, elements.stagger, elements.duration, elements.moveDuration].forEach((control) => control.addEventListener("input", () => { player.reset(); updateLabels(); saveSettings(); render(); }));
 [elements.imageFit, elements.direction, elements.order, elements.easing].forEach((control) => control.addEventListener("change", () => { if (control === elements.order) rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.backgroundColor, elements.fade].forEach((control) => control.addEventListener("input", () => { updateLabels(); saveSettings(); render(); }));
 elements.shuffle.addEventListener("click", () => { state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); player.showToast("確定順と方向をシャッフルしました"); });

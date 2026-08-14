@@ -23,6 +23,8 @@ const elements = {
   backgroundColor: document.querySelector("#backgroundColor"),
   duration: document.querySelector("#duration"),
   durationValue: document.querySelector("#durationValue"),
+  moveDuration: document.querySelector("#moveDuration"),
+  moveDurationValue: document.querySelector("#moveDurationValue"),
   settleMode: document.querySelector("#settleMode"),
   overlapTimingControls: document.querySelector("#overlapTimingControls"),
   stagger: document.querySelector("#stagger"),
@@ -58,6 +60,7 @@ function saveSettings() {
     inkColor: elements.inkColor.value,
     backgroundColor: elements.backgroundColor.value,
     duration: elements.duration.value,
+    moveDuration: elements.moveDuration.value,
     settleMode: elements.settleMode.value,
     stagger: elements.stagger.value,
     returnOrder: elements.returnOrder.value,
@@ -76,7 +79,7 @@ function restoreSettings() {
     elements.character.value = state.character;
   }
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  const controls = ["regionSize", "rotation", "scaleVariation", "guideOpacity", "inkColor", "backgroundColor", "duration", "settleMode", "stagger", "returnOrder", "easing", "outputSize", "previewSpeed", "imageTime"];
+  const controls = ["regionSize", "rotation", "scaleVariation", "guideOpacity", "inkColor", "backgroundColor", "duration", "moveDuration", "settleMode", "stagger", "returnOrder", "easing", "outputSize", "previewSpeed", "imageTime"];
   controls.forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
 }
 
@@ -192,17 +195,31 @@ function strokeRank(index) {
   return 0;
 }
 
-function strokeAmount(index, progress) {
+function strokeMoveTime() {
   const mode = elements.returnOrder.value;
-  const rank = strokeRank(index);
-  if (elements.settleMode.value === "sequential" && mode !== "simultaneous") {
-    const local = MotionToolkit.clamp(progress * state.strokes.length - rank, 0, 1);
-    return MotionToolkit.ease(local, elements.easing.value);
-  }
-  const count = Math.max(1, state.strokes.length - 1);
-  const delaySpan = mode === "simultaneous" ? 0 : Number(elements.stagger.value) / 100;
-  const delay = delaySpan * rank / count;
-  const local = MotionToolkit.clamp((progress - delay) / Math.max(0.001, 1 - delay), 0, 1);
+  const total = Number(elements.duration.value);
+  const maximum = elements.settleMode.value === "sequential" && mode !== "simultaneous"
+    ? total / Math.max(1, state.strokes.length)
+    : total;
+  return MotionToolkit.clamp(Number(elements.moveDuration.value), 0.02, Math.max(0.02, maximum));
+}
+
+function strokeStartInterval() {
+  if (elements.returnOrder.value === "simultaneous" || state.strokes.length <= 1) return 0;
+  const moveTime = strokeMoveTime();
+  if (elements.settleMode.value === "sequential") return moveTime;
+  const total = Number(elements.duration.value);
+  return Math.max(0, total - moveTime) * Number(elements.stagger.value) / 100 / Math.max(1, state.strokes.length - 1);
+}
+
+function strokeLocalProgress(index, progress) {
+  const moveTime = strokeMoveTime();
+  const delay = strokeStartInterval() * strokeRank(index);
+  return MotionToolkit.clamp((progress * Number(elements.duration.value) - delay) / moveTime, 0, 1);
+}
+
+function strokeAmount(index, progress) {
+  const local = strokeLocalProgress(index, progress);
   return MotionToolkit.ease(local, elements.easing.value);
 }
 
@@ -248,8 +265,17 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.scaleVariationValue.value = `${elements.scaleVariation.value}%`;
   elements.guideOpacityValue.value = `${elements.guideOpacity.value}%`;
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
-  elements.staggerValue.value = `${elements.stagger.value}%`;
-  elements.overlapTimingControls.hidden = elements.settleMode.value === "sequential";
+  const sequentialMaximum = Number(elements.duration.value) / Math.max(1, state.strokes.length);
+  elements.moveDuration.max = String(elements.settleMode.value === "sequential" && elements.returnOrder.value !== "simultaneous" ? Math.max(0.02, sequentialMaximum) : elements.duration.value);
+  if (Number(elements.moveDuration.value) > Number(elements.moveDuration.max)) elements.moveDuration.value = elements.moveDuration.max;
+  const moveTime = strokeMoveTime();
+  elements.moveDurationValue.value = `${moveTime.toFixed(moveTime < 0.1 ? 2 : 1)} 秒 / ${Math.round(moveTime * 60)}f`;
+  const interval = strokeStartInterval();
+  if (elements.returnOrder.value === "simultaneous") elements.staggerValue.value = "同時";
+  else if (elements.settleMode.value === "sequential") elements.staggerValue.value = `1画ずつ · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
+  else elements.staggerValue.value = `${elements.stagger.value}% · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
+  elements.stagger.disabled = elements.settleMode.value === "sequential" || elements.returnOrder.value === "simultaneous";
+  elements.overlapTimingControls.hidden = false;
   document.querySelectorAll('.color-control input[type="color"]').forEach((input) => { input.nextElementSibling.value = input.value.toUpperCase(); });
   const fixed = state.strokes.filter((_, index) => strokeAmount(index, progress) >= 0.999).length;
   elements.stageStatus.textContent = state.loading ? "画データを読み込み中" : state.strokes.length ? `${fixed} / ${state.strokes.length}画 確定` : "画データなし";
@@ -331,7 +357,7 @@ elements.shuffle.addEventListener("click", () => {
   rebuildPlacement();
   player.showToast("初期配置をシャッフルしました");
 });
-[elements.guideOpacity, elements.duration, elements.stagger].forEach((control) => control.addEventListener("input", () => {
+[elements.guideOpacity, elements.duration, elements.moveDuration, elements.stagger].forEach((control) => control.addEventListener("input", () => {
   player.reset();
   saveSettings();
   updateLabels();

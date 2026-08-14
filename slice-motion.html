@@ -32,8 +32,9 @@
           <div class="field-row select-row"><label for="direction">移動方向</label><select id="direction"><option value="alternate" selected>交互</option><option value="random">ランダム</option><option value="positive">正方向</option><option value="negative">逆方向</option><option value="center">中心から外側</option></select></div>
           <div class="field-row select-row"><label for="order">確定順</label><select id="order"><option value="sequence">順番</option><option value="center">中央から</option><option value="edges">両端から</option><option value="random" selected>ランダム</option><option value="simultaneous">同時</option></select></div>
           <label class="field-row" for="distance"><span>移動距離</span><output id="distanceValue">75%</output></label><input id="distance" class="range" type="range" min="10" max="140" step="1" value="75" />
-          <label class="field-row" for="stagger"><span>確定の時間差</span><output id="staggerValue">64%</output></label><input id="stagger" class="range" type="range" min="0" max="90" step="1" value="64" />
           <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">5.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="5" />
+          <label class="field-row" for="moveDuration"><span>1枚の移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="5" step="0.1" value="2" />
+          <label class="field-row" for="stagger"><span>開始の時間差</span><output id="staggerValue">64% · 0.17秒 / 10f</output></label><input id="stagger" class="range" type="range" min="0" max="100" step="1" value="64" />
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">減速</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
           <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>順番をシャッフル</button>
         </section>

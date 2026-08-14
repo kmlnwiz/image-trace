@@ -640,8 +640,11 @@ function updateUI() {
   const orderLabels = { left: "左から", right: "右から", together: "同時", random: "ランダム" };
   elements.characterCount.value = `${count} / ${MAX_CHARACTERS}`;
   elements.toggleAllButton.textContent = animatedCount ? "すべて固定" : "すべて動かす";
-  elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
-  elements.staggerValue.value = `${Number(elements.stagger.value).toFixed(2)} 秒`;
+  const moveTime = Number(elements.duration.value);
+  const startInterval = elements.returnOrder.value === "together" ? 0 : Number(elements.stagger.value);
+  elements.durationValue.value = `${moveTime.toFixed(1)} 秒 / ${Math.round(moveTime * 60)}f`;
+  elements.staggerValue.value = elements.returnOrder.value === "together" ? "同時" : `${startInterval.toFixed(2)} 秒 / ${Math.round(startInterval * 60)}f`;
+  elements.stagger.disabled = elements.returnOrder.value === "together";
   elements.shiftAmountValue.value = `${elements.shiftAmount.value} 文字`;
   elements.visibleNeighborsValue.value = `${elements.visibleNeighbors.value} 文字`;
   elements.totalDurationValue.value = `${totalDuration.toFixed(1)} 秒`;

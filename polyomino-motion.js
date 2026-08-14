@@ -8,10 +8,10 @@ const SETTLED_COLOR = "#e0041d";
 const FONT_SIZE_RATIO = 0.58;
 const INTERNAL_GRID_WIDTH = 2;
 const PALETTES = {
-  warm: ["#f4a38d", "#f5c36f", "#efda78", "#ee9287", "#f5b093", "#e5a17e", "#f6cf92"],
-  ocean: ["#88c6d0", "#9bd6d8", "#a9ddd4", "#92b9d8", "#a5d0e2", "#8dc8c1", "#b9dce4"],
-  candy: ["#efa5c1", "#bfb0df", "#f3ad9a", "#9dd5cf", "#f0cf8b", "#adb9e1", "#dfadd2"],
-  mono: ["#aeb7bc", "#c0c7cb", "#d1d6d9", "#e0e4e6", "#b8c0c4", "#c8ced1", "#d7dcde"],
+  warm: ["#ef918b", "#f3ad82", "#f5c97c", "#f1df93"],
+  ocean: ["#91b9df", "#8fcbdc", "#92d8cd", "#b8e1c1"],
+  candy: ["#efa5c6", "#d3addd", "#b7bce4", "#9bd8d1"],
+  mono: ["#aeb7bc", "#c1c8cc", "#d2d7da", "#e1e5e7"],
 };
 
 const elements = {
@@ -649,7 +649,7 @@ function drawPiece(piece, scene, progress, characters) {
     context.fillRect(position.x, position.y, layout.cellSize + 0.25, layout.cellSize + 0.25);
   });
 
-  const internalLine = Math.max(1, INTERNAL_GRID_WIDTH * elements.canvas.width / 1000);
+  const internalLine = INTERNAL_GRID_WIDTH;
   context.lineWidth = internalLine;
   context.strokeStyle = "#f7f3eb";
   context.beginPath();
