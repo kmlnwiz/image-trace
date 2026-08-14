@@ -101,7 +101,7 @@
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
-            <span>16:10 · 1600 × 1000</span>
+            <span id="stageDimensions">16:10 · 1600 × 1000</span>
           </div>
           <button id="fitButton" class="icon-button" type="button" title="表示をリセット" aria-label="表示をリセット">⌖</button>
         </div>
@@ -208,7 +208,7 @@
             <span class="format-badge">WebM / PNG</span>
           </div>
           <dl class="export-summary">
-            <div><dt>サイズ</dt><dd>1600 × 1000</dd></div>
+            <div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div>
             <div><dt>比率</dt><dd>16:10</dd></div>
             <div><dt>フレーム</dt><dd>60 fps</dd></div>
           </dl>
@@ -236,6 +236,7 @@
 
     <script src="motion-storage.js"></script>
     <script src="outline-trace.js"></script>
+    <script src="motion-toolkit.js"></script>
     <script src="app.js"></script>
     <script src="tool-ui.js"></script>
   </body>

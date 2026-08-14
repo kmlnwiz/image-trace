@@ -46,6 +46,8 @@ const elements = {
   easing: document.querySelector("#easing"),
   imageTime: document.querySelector("#imageTime"),
   imageTimeValue: document.querySelector("#imageTimeValue"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
   imageExportButton: document.querySelector("#imageExportButton"),
   exportButton: document.querySelector("#exportButton"),
   exportProgress: document.querySelector("#exportProgress"),
@@ -91,6 +93,7 @@ function saveOutlineSettings() {
     easing: elements.easing.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
     preset: activePreset?.dataset.preset || null,
   });
 }
@@ -111,6 +114,7 @@ function restoreOutlineSettings() {
     duration: elements.duration,
     easing: elements.easing,
     previewSpeed: elements.previewSpeed,
+    outputSize: elements.outputSize,
   };
   Object.entries(controls).forEach(([name, control]) => MotionStorage.restoreControl(control, settings[name]));
   syncOutlineImageTime();
@@ -217,11 +221,13 @@ function calculateTransform() {
   const width = Math.max(1, state.bounds.maxX - state.bounds.minX);
   const height = Math.max(1, state.bounds.maxY - state.bounds.minY);
   const margin = 92;
-  const scale = Math.min((OUTPUT_WIDTH - margin * 2) / width, (OUTPUT_HEIGHT - margin * 2) / height);
+  const outputWidth = elements.canvas.width;
+  const outputHeight = elements.canvas.height;
+  const scale = Math.min((outputWidth - margin * 2) / width, (outputHeight - margin * 2) / height);
   return {
     scale,
-    x: (OUTPUT_WIDTH - width * scale) / 2 - state.bounds.minX * scale,
-    y: (OUTPUT_HEIGHT - height * scale) / 2 - state.bounds.minY * scale,
+    x: (outputWidth - width * scale) / 2 - state.bounds.minX * scale,
+    y: (outputHeight - height * scale) / 2 - state.bounds.minY * scale,
   };
 }
 
@@ -298,41 +304,19 @@ function pointAtDistance(distance) {
 
 function traceDistanceRange(ctx, fromDistance, toDistance) {
   if (!state.totalLength || toDistance <= fromDistance) return;
-  const visibleLength = toDistance - fromDistance;
-
-  // Once a complete lap is visible, keep one closed contour on the canvas.
-  // This avoids a one-frame seam when the animated end crosses 100%, 200%, ...
-  if (visibleLength >= state.totalLength - 0.001) {
-    const start = pointAtDistance(fromDistance);
-    ctx.moveTo(start.x, start.y);
-    const startCycle = Math.floor(fromDistance / state.totalLength);
-    for (let index = 1; index <= state.contour.length; index += 1) {
-      const distance = startCycle * state.totalLength + state.cumulative[index];
-      if (distance > fromDistance + 0.001) {
-        const point = pointAtDistance(distance);
-        ctx.lineTo(point.x, point.y);
-      }
-    }
-    for (let index = 1; index < state.contour.length; index += 1) {
-      const point = pointAtDistance((startCycle + 1) * state.totalLength + state.cumulative[index]);
-      if (state.cumulative[index] < fromDistance - startCycle * state.totalLength) {
-        ctx.lineTo(point.x, point.y);
-      }
-    }
-    ctx.closePath();
-    return;
-  }
-
-  const maxVisibleDistance = state.totalLength * 5;
-  const limitedFrom = Math.max(toDistance - maxVisibleDistance, fromDistance);
+  // Stroking more than one lap produces the same pixels. Limit the range to a
+  // single lap and walk every contour vertex instead of using closePath(),
+  // which can add a straight chord when an animated range crosses its origin.
+  const limitedFrom = fromDistance;
+  const limitedTo = Math.min(toDistance, fromDistance + state.totalLength);
   let current = limitedFrom;
   const start = pointAtDistance(current);
   ctx.moveTo(start.x, start.y);
 
-  while (current < toDistance) {
+  while (current < limitedTo) {
     const wrapped = ((current % state.totalLength) + state.totalLength) % state.totalLength;
     const nextBoundary = current + (state.totalLength - wrapped || state.totalLength);
-    const target = Math.min(nextBoundary, toDistance);
+    const target = Math.min(nextBoundary, limitedTo);
     const cycleStart = Math.floor(current / state.totalLength) * state.totalLength;
 
     for (let index = 1; index < state.cumulative.length; index += 1) {
@@ -346,15 +330,20 @@ function traceDistanceRange(ctx, fromDistance, toDistance) {
     const point = pointAtDistance(target);
     ctx.lineTo(point.x, point.y);
     current = target;
-    if (toDistance - current < 0.001) break;
+    if (limitedTo - current < 0.001) break;
   }
+}
+
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  state.transform = calculateTransform();
 }
 
 function render(progress = state.playhead) {
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = elements.backgroundColor.value;
-  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  context.fillRect(0, 0, elements.canvas.width, elements.canvas.height);
 
   if (!state.image || !state.transform || !state.contour.length) {
     context.restore();
@@ -450,8 +439,8 @@ function toggleOriginPicker(force) {
 function selectOriginFromCanvas(event) {
   if (!state.isPickingOrigin || !state.transform || !state.contour.length) return;
   const rect = elements.canvas.getBoundingClientRect();
-  const canvasX = (event.clientX - rect.left) * OUTPUT_WIDTH / rect.width;
-  const canvasY = (event.clientY - rect.top) * OUTPUT_HEIGHT / rect.height;
+  const canvasX = (event.clientX - rect.left) * elements.canvas.width / rect.width;
+  const canvasY = (event.clientY - rect.top) * elements.canvas.height / rect.height;
   const x = (canvasX - state.transform.x) / state.transform.scale;
   const y = (canvasY - state.transform.y) / state.transform.scale;
 
@@ -764,6 +753,11 @@ elements.previewSpeed.addEventListener("change", () => {
 });
 elements.exportButton.addEventListener("click", exportVideo);
 elements.imageExportButton.addEventListener("click", exportImage);
+elements.outputSize.addEventListener("change", () => {
+  resizeOutputCanvas();
+  saveOutlineSettings();
+  render();
+});
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) {
@@ -777,6 +771,7 @@ window.addEventListener("keydown", (event) => {
 (async function init() {
   try {
     restoreOutlineSettings();
+    resizeOutputCanvas();
     const image = await makeSampleImage();
     await processImage(image, "sample-shape.png");
   } catch (error) {

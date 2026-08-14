@@ -86,7 +86,7 @@
 
         <section class="control-section export-section tool-panel-right">
           <dl class="output-summary">
-            <div><dt>出力</dt><dd>1600 × 1000</dd></div>
+            <div><dt>出力</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div>
             <div><dt>形式</dt><dd>WebM / PNG</dd></div>
           </dl>
           <label class="field-row" for="imageTime">
@@ -104,7 +104,7 @@
         <div class="stage-toolbar">
           <div>
             <strong>プレビュー</strong>
-            <span>16:10 · 1600 × 1000</span>
+            <span id="stageDimensions">16:10 · 1600 × 1000</span>
           </div>
           <span id="stageStatus" class="stage-status">4列 · 4列停止 · 列別速度</span>
         </div>
@@ -135,6 +135,7 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
+    <script src="motion-toolkit.js"></script>
     <script src="text-reel.js"></script>
     <script src="tool-ui.js"></script>
   </body>

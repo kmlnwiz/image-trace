@@ -187,10 +187,14 @@ function buildPlacements() {
 }
 
 function applyCharacterTransform(ctx) {
-  const size = elements.canvas.width;
+  const width = elements.canvas.width;
+  const height = elements.canvas.height;
+  const size = Math.min(width, height);
   const padding = size * 0.045;
   const scale = (size - padding * 2) / SOURCE_SIZE;
-  ctx.setTransform(scale, 0, 0, -scale, padding, size / 2 + SOURCE_BASELINE * scale / 2);
+  const x = width / 2 - SOURCE_SIZE * scale / 2;
+  const y = height / 2 + SOURCE_BASELINE * scale / 2;
+  ctx.setTransform(scale, 0, 0, -scale, x, y);
 }
 
 function strokeRank(index) {
@@ -216,8 +220,8 @@ function strokeStartInterval() {
 }
 
 function syncStrokeStartIntervalLimit() {
-  elements.stagger.max = "10";
-  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 10));
+  elements.stagger.max = "20";
+  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 20));
 }
 
 function migrateLegacyStartInterval() {
@@ -395,20 +399,14 @@ elements.shuffle.addEventListener("click", () => {
 }));
 document.querySelectorAll('.color-control input[type="color"]').forEach((input) => input.addEventListener("input", () => { saveSettings(); updateLabels(); render(); }));
 elements.outputSize.addEventListener("change", () => {
-  const size = Number(elements.outputSize.value);
-  elements.canvas.width = size;
-  elements.canvas.height = size;
-  elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`;
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, 800, 800);
   saveSettings();
   render();
 });
 
 (async function init() {
   restoreSettings();
-  const size = Number(elements.outputSize.value);
-  elements.canvas.width = size;
-  elements.canvas.height = size;
-  elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`;
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, 800, 800);
   updateLabels();
   render();
   await loadCharacter(state.character);

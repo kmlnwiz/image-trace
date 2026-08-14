@@ -51,6 +51,8 @@ const elements = {
   previewSpeed: document.querySelector("#previewSpeed"),
   imageTime: document.querySelector("#imageTime"),
   imageTimeValue: document.querySelector("#imageTimeValue"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
   imageExportButton: document.querySelector("#imageExportButton"),
   exportButton: document.querySelector("#exportButton"),
   exportProgress: document.querySelector("#exportProgress"),
@@ -147,6 +149,7 @@ function saveDialSettings() {
     backgroundColor: elements.backgroundColor.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
     alternateDirections: state.alternateDirections,
     shiftAmount: elements.shiftAmount.value,
     visibleNeighbors: elements.visibleNeighbors.value,
@@ -182,6 +185,7 @@ function restoreDialSettings() {
     dialColor: elements.dialColor,
     backgroundColor: elements.backgroundColor,
     previewSpeed: elements.previewSpeed,
+    outputSize: elements.outputSize,
   };
   Object.entries(controls).forEach(([name, control]) => MotionStorage.restoreControl(control, settings[name]));
   if (!Number.isFinite(Number(settings.totalDuration))) {
@@ -203,6 +207,10 @@ function restoreDialSettings() {
     ? settings.randomReturnRanks.map((rank) => Number.isInteger(rank) ? rank : 0)
     : [];
   return settings;
+}
+
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 }
 
 function clamp(value, min, max) {
@@ -329,8 +337,8 @@ function syncDialTimeLimits() {
   elements.totalDuration.value = String(totalDuration);
   elements.duration.max = String(totalDuration);
   elements.duration.value = String(clamp(Number(elements.duration.value), 0.5, totalDuration));
-  elements.stagger.max = "10";
-  elements.stagger.value = String(clamp(Number(elements.stagger.value), 0, 10));
+  elements.stagger.max = "20";
+  elements.stagger.value = String(clamp(Number(elements.stagger.value), 0, 20));
   elements.imageTime.max = String(totalDuration);
   elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, totalDuration));
   elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
@@ -540,27 +548,29 @@ function drawDial(x, y, width, height, character, index, playhead) {
 }
 
 function render(playhead = state.playhead) {
+  const outputWidth = elements.canvas.width;
+  const outputHeight = elements.canvas.height;
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = elements.backgroundColor.value;
-  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  context.fillRect(0, 0, outputWidth, outputHeight);
 
   const count = Math.max(1, state.characters.length);
   const sidePadding = count <= 7 ? 70 : 100;
   const maxGap = count <= 7 ? 22 : 18;
   const maxDialWidth = count <= 4 ? 230 : count <= 7 ? 190 : 150;
-  const dialWidth = clamp((OUTPUT_WIDTH - sidePadding * 2 - maxGap * (count - 1)) / count, 68, maxDialWidth);
-  const gap = count > 1 ? Math.min(maxGap, (OUTPUT_WIDTH - sidePadding * 2 - dialWidth * count) / (count - 1)) : 0;
+  const dialWidth = clamp((outputWidth - sidePadding * 2 - maxGap * (count - 1)) / count, 68, maxDialWidth);
+  const gap = count > 1 ? Math.min(maxGap, (outputWidth - sidePadding * 2 - dialWidth * count) / (count - 1)) : 0;
   const totalWidth = dialWidth * count + gap * (count - 1);
-  const startX = (OUTPUT_WIDTH - totalWidth) / 2;
+  const startX = (outputWidth - totalWidth) / 2;
   const dialHeight = clamp(dialWidth * 2.35, 240, count <= 7 ? 430 : 350);
-  const startY = (OUTPUT_HEIGHT - dialHeight) / 2;
+  const startY = (outputHeight - dialHeight) / 2;
 
   if (!state.characters.length) {
     context.fillStyle = elements.textColor.value;
     context.globalAlpha = 0.35;
     context.font = `700 44px ${fontFamily()}`;
-    context.fillText("文字列を入力", OUTPUT_WIDTH / 2, OUTPUT_HEIGHT / 2);
+    context.fillText("文字列を入力", outputWidth / 2, outputHeight / 2);
     context.restore();
     return;
   }
@@ -906,6 +916,11 @@ elements.imageTime.addEventListener("input", () => {
 });
 elements.exportButton.addEventListener("click", exportVideo);
 elements.imageExportButton.addEventListener("click", exportImage);
+elements.outputSize.addEventListener("change", () => {
+  resizeOutputCanvas();
+  saveDialSettings();
+  render();
+});
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) {
@@ -917,6 +932,7 @@ window.addEventListener("keydown", (event) => {
 
 (async function init() {
   const restoredSettings = restoreDialSettings();
+  resizeOutputCanvas();
   rebuildCharacterOptions(false);
   if (restoredSettings) {
     const restoredAnimated = Array.isArray(restoredSettings.animated) ? restoredSettings.animated : [];

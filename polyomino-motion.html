@@ -50,7 +50,7 @@
       </aside>
 
       <section class="stage-panel tool-stage" aria-label="ポリオミノ組み立てプレビュー">
-        <div class="stage-toolbar"><div><strong>プレビュー</strong><span>16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 5 ミノ 確定</span></div>
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 5 ミノ 確定</span></div>
         <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="文字の入ったポリオミノが散らばった状態から盤面へ戻るアニメーション"></canvas></div>
         <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><output id="currentTime">0:00.0</output><output id="totalTime">0:06.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
@@ -61,20 +61,23 @@
           <label class="field-row" for="duration"><span>全体時間</span><output>最大90秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
           <label class="field-row" for="moveDuration"><span>1ミノの移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="6" step="0.1" value="2" />
           <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="simultaneous">同時</option></select></div>
-          <label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.68秒 / 41f</output></label><input id="stagger" class="range" type="range" min="0" max="10" step="0.01" value="0.68" />
+          <label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.68秒 / 41f</output></label><input id="stagger" class="range" type="range" min="0" max="20" step="0.01" value="0.68" />
           <p class="field-hint">開始間隔は全体時間と独立しています。各ミノを0秒、設定秒、設定秒×2…に戻し始め、完成後はその状態を表示します。</p>
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
         </section>
 
         <section class="control-section">
-          <div class="section-heading"><h2>初期配置</h2></div>
+          <div class="section-heading"><h2>初期配置</h2><output id="fixedPieceCount" class="meta-value">0 / 5 固定</output></div>
           <div class="placement-note"><span aria-hidden="true">↻</span><div><strong>90°単位でランダム回転</strong><small>ミノ同士と完成グリッドを重ねず、空いている側へ整列します。</small></div></div>
+          <div id="fixedPiecePicker" class="fixed-piece-picker" aria-label="最初から確定させるミノ"></div>
+          <div class="fixed-piece-actions"><button id="clearFixedPiecesButton" class="button button-secondary" type="button">すべて動かす</button><button id="selectAllFixedPiecesButton" class="button button-secondary" type="button">すべて固定</button></div>
+          <p class="field-hint">ミノを選ぶと、開始時から完成位置に固定されます。</p>
           <label class="check-row"><input id="showGuide" type="checkbox" checked /><span>完成位置のガイドを表示</span></label>
         </section>
 
         <section class="control-section export-section">
           <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
-          <dl class="export-summary"><div><dt>サイズ</dt><dd>1600 × 1000</dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl>
+          <dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl>
           <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" />
           <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
         </section>

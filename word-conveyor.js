@@ -28,6 +28,8 @@ const elements = {
   previewSpeed: document.querySelector("#previewSpeed"),
   imageTime: document.querySelector("#imageTime"),
   stageStatus: document.querySelector("#stageStatus"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
 };
 
 const context = elements.canvas.getContext("2d");
@@ -126,6 +128,7 @@ function saveSettings() {
     duration: elements.duration.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
   });
 }
 
@@ -133,7 +136,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(WORD_CONVEYOR_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["direction", "sentenceGap", "fontStyle", "fontSize", "textColor", "cardColor", "beltColor", "backgroundColor", "duration", "previewSpeed", "imageTime"]
+  ["direction", "sentenceGap", "fontStyle", "fontSize", "textColor", "cardColor", "beltColor", "backgroundColor", "duration", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   state.lastFontStyle = elements.fontStyle.value;
   return settings;
@@ -340,7 +343,14 @@ function resetAndRender() {
   render();
 }
 
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
+  ledCanvas.width = elements.canvas.width;
+  ledCanvas.height = 470;
+}
+
 const restoredSettings = restoreSettings();
+resizeOutputCanvas();
 updateFontUI();
 
 player = MotionToolkit.createPlayer({
@@ -372,6 +382,10 @@ elements.fontFile.addEventListener("change", async () => {
   elements.fontFile.value = "";
 });
 elements.fontClear.addEventListener("click", () => clearLocalFont(true));
+elements.outputSize.addEventListener("change", () => {
+  resizeOutputCanvas();
+  resetAndRender();
+});
 [elements.textColor, elements.cardColor, elements.beltColor, elements.backgroundColor]
   .forEach((control) => control.addEventListener("input", resetAndRender));
 

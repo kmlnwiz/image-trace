@@ -10,7 +10,7 @@ const MAX_PER_LINE = 12;
 const elements = {
   canvas: document.querySelector("#previewCanvas"), frontText: document.querySelector("#frontText"), backText: document.querySelector("#backText"), frontCount: document.querySelector("#frontCount"), backCount: document.querySelector("#backCount"), randomDummy: document.querySelector("#randomDummyButton"),
   panelGap: document.querySelector("#panelGap"), panelGapValue: document.querySelector("#panelGapValue"), cornerRadius: document.querySelector("#cornerRadius"), cornerRadiusValue: document.querySelector("#cornerRadiusValue"), fontFamily: document.querySelector("#fontFamily"), fontFile: document.querySelector("#fontFile"), fontFileName: document.querySelector("#fontFileName"), fontClear: document.querySelector("#fontClearButton"), panelColor: document.querySelector("#panelColor"), textColor: document.querySelector("#textColor"), settledColor: document.querySelector("#settledColor"), backgroundColor: document.querySelector("#backgroundColor"),
-  duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"), minTurns: document.querySelector("#minTurns"), minTurnsValue: document.querySelector("#minTurnsValue"), maxTurns: document.querySelector("#maxTurns"), maxTurnsValue: document.querySelector("#maxTurnsValue"), timingMode: document.querySelector("#timingMode"), autoTimingControls: document.querySelector("#autoTimingControls"), settleSpan: document.querySelector("#settleSpan"), settleSpanValue: document.querySelector("#settleSpanValue"), settleOrder: document.querySelector("#settleOrder"), individualTiming: document.querySelector("#individualTiming"), panelTimingGrid: document.querySelector("#panelTimingGrid"), selectedPanelLabel: document.querySelector("#selectedPanelLabel"), panelSettleTime: document.querySelector("#panelSettleTime"), panelSettleTimeValue: document.querySelector("#panelSettleTimeValue"), panelSettleTimeNumber: document.querySelector("#panelSettleTimeNumber"), copyAutomatic: document.querySelector("#copyAutomaticButton"), evenTiming: document.querySelector("#evenTimingButton"), randomTiming: document.querySelector("#randomTimingButton"), randomDirection: document.querySelector("#randomDirection"), shuffle: document.querySelector("#shuffleButton"), stageStatus: document.querySelector("#stageStatus"), previewSpeed: document.querySelector("#previewSpeed"), imageTime: document.querySelector("#imageTime"),
+  duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"), minTurns: document.querySelector("#minTurns"), minTurnsValue: document.querySelector("#minTurnsValue"), maxTurns: document.querySelector("#maxTurns"), maxTurnsValue: document.querySelector("#maxTurnsValue"), timingMode: document.querySelector("#timingMode"), autoTimingControls: document.querySelector("#autoTimingControls"), settleSpan: document.querySelector("#settleSpan"), settleSpanValue: document.querySelector("#settleSpanValue"), settleOrder: document.querySelector("#settleOrder"), individualTiming: document.querySelector("#individualTiming"), panelTimingGrid: document.querySelector("#panelTimingGrid"), selectedPanelLabel: document.querySelector("#selectedPanelLabel"), panelSettleTime: document.querySelector("#panelSettleTime"), panelSettleTimeValue: document.querySelector("#panelSettleTimeValue"), panelSettleTimeNumber: document.querySelector("#panelSettleTimeNumber"), copyAutomatic: document.querySelector("#copyAutomaticButton"), evenTiming: document.querySelector("#evenTimingButton"), randomTiming: document.querySelector("#randomTimingButton"), randomDirection: document.querySelector("#randomDirection"), shuffle: document.querySelector("#shuffleButton"), stageStatus: document.querySelector("#stageStatus"), previewSpeed: document.querySelector("#previewSpeed"), imageTime: document.querySelector("#imageTime"), outputSize: document.querySelector("#outputSize"), stageDimensions: document.querySelector("#stageDimensions"),
 };
 const context = elements.canvas.getContext("2d");
 const state = { seed: Date.now(), frontLines: [], backLines: [], panels: [], columns: 1, rows: 1, customTimes: [], selectedPanel: 0, localFontFamily: "", localFontName: "" };
@@ -91,6 +91,7 @@ function saveSettings() {
     randomDirection: elements.randomDirection.checked, localFontName: state.localFontName,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
   });
 }
 
@@ -100,7 +101,7 @@ function restoreSettings() {
   if (typeof settings.frontText === "string") elements.frontText.value = normalizedText(settings.frontText);
   if (typeof settings.backText === "string") elements.backText.value = normalizedText(settings.backText);
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  ["panelGap", "cornerRadius", "fontFamily", "backgroundColor", "duration", "minTurns", "maxTurns", "timingMode", "settleSpan", "settleOrder", "previewSpeed", "imageTime"]
+  ["panelGap", "cornerRadius", "fontFamily", "backgroundColor", "duration", "minTurns", "maxTurns", "timingMode", "settleSpan", "settleOrder", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   MotionStorage.restoreControl(elements.panelColor, settings.panelColor ?? settings.frontPanelColor);
   MotionStorage.restoreControl(elements.textColor, settings.textColor ?? settings.frontTextColor);
@@ -410,6 +411,10 @@ function updateLabels(progress = player?.state.playhead || 0) {
   });
 }
 
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
+}
+
 player = MotionToolkit.createPlayer({
   canvas: elements.canvas, getDuration: () => elements.duration.value,
   isReady: () => state.panels.length, render, onUpdate: updateLabels,
@@ -461,11 +466,13 @@ elements.copyAutomatic.addEventListener("click", () => { applyTimingPreset("auto
 elements.evenTiming.addEventListener("click", () => { applyTimingPreset("even"); player.showToast("確定時刻を均等に配置しました"); });
 elements.randomTiming.addEventListener("click", () => { applyTimingPreset("random"); player.showToast("確定時刻をランダムに配置しました"); });
 elements.randomDirection.addEventListener("change", () => { state.seed = Date.now(); rebuildPanels(); player.reset(); saveSettings(); render(); });
+elements.outputSize.addEventListener("change", () => { resizeOutputCanvas(); player.reset(); saveSettings(); render(); });
 document.querySelectorAll('.color-control input[type="color"]').forEach((input) => input.addEventListener("input", () => { updateLabels(); saveSettings(); render(); }));
 elements.shuffle.addEventListener("click", () => { state.seed = Date.now(); rebuildPanels(); player.reset(); saveSettings(); render(); player.showToast("回転数・向き・確定順を再抽選しました"); });
 
 (async function init() {
   const restoredSettings = restoreSettings();
+  resizeOutputCanvas();
   elements.frontText.value = normalizedText(elements.frontText.value);
   elements.backText.value = normalizedText(elements.backText.value);
   rebuildPanels(); updateLabels(); render();

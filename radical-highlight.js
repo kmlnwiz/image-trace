@@ -51,10 +51,14 @@ function setMessage(message = "") {
 }
 
 function applyCharacterTransform(ctx) {
-  const size = elements.canvas.width;
+  const width = elements.canvas.width;
+  const height = elements.canvas.height;
+  const size = Math.min(width, height);
   const padding = size * 0.045;
   const scale = (size - padding * 2) / SOURCE_SIZE;
-  ctx.setTransform(scale, 0, 0, -scale, padding, size / 2 + SOURCE_BASELINE * scale / 2);
+  const x = width / 2 - SOURCE_SIZE * scale / 2;
+  const y = height / 2 + SOURCE_BASELINE * scale / 2;
+  ctx.setTransform(scale, 0, 0, -scale, x, y);
 }
 
 function drawStroke(stroke, color, alpha) {
@@ -212,15 +216,12 @@ elements.selectAll.addEventListener("click", () => { state.selected = new Set(st
 elements.clear.addEventListener("click", () => { state.selected.clear(); renderPicker(); updateLabels(); saveSettings(); render(); });
 elements.baseOpacity.addEventListener("input", () => { updateLabels(); saveSettings(); render(); });
 document.querySelectorAll('.color-control input[type="color"]').forEach((input) => input.addEventListener("input", () => { updateLabels(); saveSettings(); render(); }));
-elements.outputSize.addEventListener("change", () => { const size = Number(elements.outputSize.value); elements.canvas.width = size; elements.canvas.height = size; elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`; saveSettings(); render(); });
+elements.outputSize.addEventListener("change", () => { MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, 800, 800); saveSettings(); render(); });
 elements.imageExport.addEventListener("click", exportImage);
 
 (async function init() {
   const restoredSelection = restoreSettings();
-  const size = Number(elements.outputSize.value);
-  elements.canvas.width = size;
-  elements.canvas.height = size;
-  elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`;
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, 800, 800);
   updateLabels();
   render();
   await loadCharacter(state.character, restoredSelection);

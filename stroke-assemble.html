@@ -70,14 +70,14 @@
           <label class="field-row" for="moveDuration"><span>1画の移動時間</span><output id="moveDurationValue">0.5 秒 / 30f</output></label>
           <input id="moveDuration" class="range" type="range" min="0.02" max="6" step="0.01" value="0.5" />
           <div class="field-row select-row"><label for="settleMode">確定方法</label><select id="settleMode"><option value="sequential" selected>1画ずつ</option><option value="overlap">時間差で重ねる</option></select></div>
-          <div id="overlapTimingControls"><label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.50秒 / 30f</output></label><input id="stagger" class="range" type="range" min="0" max="10" step="0.01" value="0.50" /><p class="field-hint">開始間隔は全体時間と独立しています。「1画ずつ」では移動時間を間隔内に収め、完成後はその状態を表示します。</p></div>
+          <div id="overlapTimingControls"><label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.50秒 / 30f</output></label><input id="stagger" class="range" type="range" min="0" max="20" step="0.01" value="0.50" /><p class="field-hint">開始間隔は全体時間と独立しています。「1画ずつ」では移動時間を間隔内に収め、完成後はその状態を表示します。</p></div>
           <div class="field-row select-row"><label for="returnOrder">確定順</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="stroke">画順</option><option value="reverse">逆画順</option><option value="simultaneous">同時</option></select></div>
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">減速</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
         </section>
 
         <section class="control-section export-section">
           <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
-          <div class="field-row select-row"><label for="outputSize">サイズ</label><select id="outputSize"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option></select></div>
+          <div class="field-row select-row"><label for="outputSize">サイズ</label><select id="outputSize"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option><option value="1920x900">1920 × 900</option></select></div>
           <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label>
           <input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" />
           <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>

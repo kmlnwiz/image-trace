@@ -44,6 +44,8 @@ const elements = {
   previewSpeed: document.querySelector("#previewSpeed"),
   imageTime: document.querySelector("#imageTime"),
   stageStatus: document.querySelector("#stageStatus"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
 };
 
 const context = elements.canvas.getContext("2d");
@@ -268,6 +270,7 @@ function saveSettings() {
     easing: elements.easing.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
   });
 }
 
@@ -275,7 +278,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(PANEL_REVEAL_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["backMode", "panelGap", "cornerRadius", "fontStyle", "fontSize", "panelColor", "textColor", "settledColor", "backgroundColor", "orderMode", "duration", "flipDuration", "settleSpan", "easing", "previewSpeed", "imageTime"]
+  ["backMode", "panelGap", "cornerRadius", "fontStyle", "fontSize", "panelColor", "textColor", "settledColor", "backgroundColor", "orderMode", "duration", "flipDuration", "settleSpan", "easing", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   if (Array.isArray(settings.specifiedOrder)) state.specifiedOrder = settings.specifiedOrder.map(Number).filter(Number.isInteger);
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
@@ -493,7 +496,12 @@ function resetAndRender() {
   render();
 }
 
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
+}
+
 const restoredSettings = restoreSettings();
+resizeOutputCanvas();
 sanitizeTextInput();
 rebuildPanels();
 updateFontUI();
@@ -539,6 +547,10 @@ elements.fontFile.addEventListener("change", async () => {
   elements.fontFile.value = "";
 });
 elements.fontClear.addEventListener("click", () => clearLocalFont(true));
+elements.outputSize.addEventListener("change", () => {
+  resizeOutputCanvas();
+  resetAndRender();
+});
 [elements.panelColor, elements.textColor, elements.settledColor, elements.backgroundColor]
   .forEach((control) => control.addEventListener("input", resetAndRender));
 

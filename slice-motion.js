@@ -11,14 +11,14 @@ const elements = {
   stagger: document.querySelector("#stagger"), staggerValue: document.querySelector("#staggerValue"), duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"),
   moveDuration: document.querySelector("#moveDuration"), moveDurationValue: document.querySelector("#moveDurationValue"),
   easing: document.querySelector("#easing"), shuffle: document.querySelector("#shuffleButton"), stageStatus: document.querySelector("#stageStatus"), canvasMessage: document.querySelector("#canvasMessage"),
-  previewSpeed: document.querySelector("#previewSpeed"), imageTime: document.querySelector("#imageTime"),
+  previewSpeed: document.querySelector("#previewSpeed"), imageTime: document.querySelector("#imageTime"), outputSize: document.querySelector("#outputSize"), stageDimensions: document.querySelector("#stageDimensions"),
 };
 const context = elements.canvas.getContext("2d");
 const state = { image: null, imageName: "sample-slices.png", imageBytes: 0, imageUrl: "", layout: "vertical", seed: Date.now(), pieces: [] };
 let player = null;
 
 function saveSettings() {
-  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, moveDuration: elements.moveDuration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value });
+  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, moveDuration: elements.moveDuration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value, outputSize: elements.outputSize.value });
 }
 
 function restoreSettings() {
@@ -26,7 +26,7 @@ function restoreSettings() {
   if (!settings || typeof settings !== "object") return;
   if (["vertical", "horizontal", "grid"].includes(settings.layout)) state.layout = settings.layout;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  ["imageFit", "columns", "rows", "gap", "backgroundColor", "direction", "order", "distance", "stagger", "duration", "moveDuration", "easing", "previewSpeed", "imageTime"].forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+  ["imageFit", "columns", "rows", "gap", "backgroundColor", "direction", "order", "distance", "stagger", "duration", "moveDuration", "easing", "previewSpeed", "imageTime", "outputSize"].forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   if (typeof settings.fade === "boolean") elements.fade.checked = settings.fade;
 }
 
@@ -210,5 +210,6 @@ elements.layoutButtons.forEach((button) => button.addEventListener("click", () =
 [elements.imageFit, elements.direction, elements.order, elements.easing].forEach((control) => control.addEventListener("change", () => { if (control === elements.order) rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.backgroundColor, elements.fade].forEach((control) => control.addEventListener("input", () => { updateLabels(); saveSettings(); render(); }));
 elements.shuffle.addEventListener("click", () => { state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); player.showToast("確定順と方向をシャッフルしました"); });
+elements.outputSize.addEventListener("change", () => { MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions); player.reset(); saveSettings(); render(); });
 
-(async function init() { restoreSettings(); rebuildPieces(); updateLabels(); render(); await setImage(await makeSample(), "sample-slices.png"); })();
+(async function init() { restoreSettings(); MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions); rebuildPieces(); updateLabels(); render(); await setImage(await makeSample(), "sample-slices.png"); })();

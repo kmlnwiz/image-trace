@@ -25,10 +25,64 @@ const OutlineTrace = (() => {
     return current;
   }
 
+  function distanceToSegmentSquared(point, start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (!lengthSquared) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
+    const amount = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
+    const nearestX = start.x + dx * amount;
+    const nearestY = start.y + dy * amount;
+    return (point.x - nearestX) ** 2 + (point.y - nearestY) ** 2;
+  }
+
+  function simplifyOpen(points, tolerance) {
+    if (points.length <= 2) return points.slice();
+    const keep = new Uint8Array(points.length);
+    const ranges = [[0, points.length - 1]];
+    const toleranceSquared = tolerance * tolerance;
+    keep[0] = 1;
+    keep[points.length - 1] = 1;
+
+    while (ranges.length) {
+      const [startIndex, endIndex] = ranges.pop();
+      let furthestIndex = -1;
+      let furthestDistance = toleranceSquared;
+      for (let index = startIndex + 1; index < endIndex; index += 1) {
+        const distance = distanceToSegmentSquared(points[index], points[startIndex], points[endIndex]);
+        if (distance > furthestDistance) {
+          furthestDistance = distance;
+          furthestIndex = index;
+        }
+      }
+      if (furthestIndex < 0) continue;
+      keep[furthestIndex] = 1;
+      ranges.push([startIndex, furthestIndex], [furthestIndex, endIndex]);
+    }
+
+    return points.filter((_, index) => keep[index]);
+  }
+
   function simplify(points) {
     if (points.length <= 1200) return points;
-    const step = Math.ceil(points.length / 1200);
-    return points.filter((_, index) => index % step === 0);
+
+    // Split the closed contour into two open chains, then simplify each with a
+    // sub-pixel error bound. Fixed-step sampling can jump across deep notches
+    // and turn the skipped outline into a long straight chord.
+    let splitIndex = 1;
+    let furthestDistance = 0;
+    for (let index = 1; index < points.length; index += 1) {
+      const distance = (points[index].x - points[0].x) ** 2 + (points[index].y - points[0].y) ** 2;
+      if (distance > furthestDistance) {
+        furthestDistance = distance;
+        splitIndex = index;
+      }
+    }
+
+    const firstChain = simplifyOpen(points.slice(0, splitIndex + 1), 0.75);
+    const secondChain = simplifyOpen([...points.slice(splitIndex), points[0]], 0.75);
+    const simplified = [...firstChain, ...secondChain.slice(1, -1)];
+    return simplified.length >= 3 ? simplified : points;
   }
 
   function findLargestComponent(mask, width, height) {

@@ -357,7 +357,7 @@ async function loadStrokeData(character) {
 function applyCharacterTransform(ctx) {
   const width = elements.canvas.width;
   const height = elements.canvas.height;
-  const scaledPadding = CHARACTER_PADDING * width / OUTPUT_WIDTH;
+  const scaledPadding = CHARACTER_PADDING * Math.min(width, height) / OUTPUT_WIDTH;
   const availableWidth = width - scaledPadding * 2;
   const availableHeight = height - scaledPadding * 2;
   const scale = Math.min(availableWidth / SOURCE_WIDTH, availableHeight / SOURCE_WIDTH);
@@ -367,10 +367,7 @@ function applyCharacterTransform(ctx) {
 }
 
 function resizeOutputCanvas() {
-  const size = Number(elements.outputSize.value);
-  elements.canvas.width = size;
-  elements.canvas.height = size;
-  elements.stageDimensions.textContent = `1:1 · ${size} × ${size}`;
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 }
 
 function drawStroke(stroke, alpha = 1) {

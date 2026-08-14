@@ -100,6 +100,33 @@
     return { x: (targetWidth - width) / 2, y: (targetHeight - height) / 2, width, height, scale };
   }
 
+  function outputDimensions(value, fallbackWidth = 1600, fallbackHeight = 1000) {
+    const match = String(value || "").match(/^(\d+)x(\d+)$/i);
+    if (match) return { width: Number(match[1]), height: Number(match[2]) };
+    const squareSize = Number(value);
+    if (Number.isFinite(squareSize) && squareSize > 0) return { width: squareSize, height: squareSize };
+    return { width: fallbackWidth, height: fallbackHeight };
+  }
+
+  function resizeOutputCanvas(canvas, value, dimensionsLabel = null, fallbackWidth = 1600, fallbackHeight = 1000) {
+    const { width, height } = outputDimensions(value, fallbackWidth, fallbackHeight);
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.aspectRatio = `${width} / ${height}`;
+    if (dimensionsLabel) {
+      const divisor = greatestCommonDivisor(width, height);
+      dimensionsLabel.textContent = `${width / divisor}:${height / divisor} · ${width} × ${height}`;
+    }
+    return { width, height };
+  }
+
+  function greatestCommonDivisor(a, b) {
+    let left = Math.abs(a);
+    let right = Math.abs(b);
+    while (right) [left, right] = [right, left % right];
+    return left || 1;
+  }
+
   function createPlayer(options) {
     const canvas = options.canvas;
     const elements = {
@@ -116,6 +143,7 @@
       progress: document.querySelector("#exportProgress"),
       progressBar: document.querySelector("#exportProgressBar"),
       toast: document.querySelector("#toast"),
+      outputSize: document.querySelector("#outputSize"),
     };
     const state = {
       playhead: 0,
@@ -166,6 +194,7 @@
       }
       if (elements.imageExport) elements.imageExport.disabled = !available() || state.isExporting;
       if (elements.videoExport) elements.videoExport.disabled = !available() || state.isExporting;
+      if (elements.outputSize) elements.outputSize.disabled = state.isExporting;
       options.onUpdate?.(state.playhead, state);
     }
 
@@ -332,6 +361,8 @@
     safeFileName,
     loadImageFile,
     containRect,
+    outputDimensions,
+    resizeOutputCanvas,
     createPlayer,
   };
 })();

@@ -35,6 +35,8 @@ const elements = {
   previewSpeed: document.querySelector("#previewSpeed"),
   imageTime: document.querySelector("#imageTime"),
   imageTimeValue: document.querySelector("#imageTimeValue"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
   imageExportButton: document.querySelector("#imageExportButton"),
   exportButton: document.querySelector("#exportButton"),
   exportButtonLabel: document.querySelector("#exportButtonLabel"),
@@ -758,10 +760,12 @@ function drawReel(x, y, width, height, rowHeight, index, time) {
 }
 
 function render(playhead = state.playhead) {
+  const outputWidth = elements.canvas.width;
+  const outputHeight = elements.canvas.height;
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = elements.backgroundColor.value;
-  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  context.fillRect(0, 0, outputWidth, outputHeight);
 
   const count = state.columns.length;
   if (!count) {
@@ -770,7 +774,7 @@ function render(playhead = state.playhead) {
     context.font = `700 44px ${fontFamily()}`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText("リール文字列を入力", OUTPUT_WIDTH / 2, OUTPUT_HEIGHT / 2);
+    context.fillText("リール文字列を入力", outputWidth / 2, outputHeight / 2);
     context.restore();
     return;
   }
@@ -779,18 +783,18 @@ function render(playhead = state.playhead) {
   const desiredGap = count <= 6 ? 24 : 14;
   const maxWidth = count <= 4 ? 260 : count <= 7 ? 205 : 140;
   const reelWidth = clamp(
-    (OUTPUT_WIDTH - sidePadding * 2 - desiredGap * (count - 1)) / count,
+    (outputWidth - sidePadding * 2 - desiredGap * (count - 1)) / count,
     72,
     maxWidth,
   );
   const gap = count > 1
-    ? Math.max(6, Math.min(desiredGap, (OUTPUT_WIDTH - sidePadding * 2 - reelWidth * count) / (count - 1)))
+    ? Math.max(6, Math.min(desiredGap, (outputWidth - sidePadding * 2 - reelWidth * count) / (count - 1)))
     : 0;
   const totalWidth = reelWidth * count + gap * (count - 1);
-  const startX = (OUTPUT_WIDTH - totalWidth) / 2;
+  const startX = (outputWidth - totalWidth) / 2;
   const rowHeight = clamp(reelWidth * 0.82, 92, 152);
   const reelHeight = rowHeight * 3;
-  const startY = (OUTPUT_HEIGHT - reelHeight) / 2;
+  const startY = (outputHeight - reelHeight) / 2;
   const time = playhead * Number(elements.duration.value);
 
   state.columns.forEach((_, index) => {
@@ -865,6 +869,7 @@ function saveSettings() {
     backgroundColor: elements.backgroundColor.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
   });
 }
 
@@ -879,12 +884,17 @@ function restoreSettings() {
     reelColor: elements.reelColor,
     backgroundColor: elements.backgroundColor,
     previewSpeed: elements.previewSpeed,
+    outputSize: elements.outputSize,
   };
   Object.entries(controls).forEach(([name, control]) => MotionStorage.restoreControl(control, settings[name]));
   elements.colorControls.forEach((input) => {
     input.nextElementSibling.value = input.value.toUpperCase();
   });
   return settings;
+}
+
+function resizeOutputCanvas() {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 }
 
 function randomizeMotion(showMessage = true) {
@@ -1077,6 +1087,11 @@ elements.imageTime.addEventListener("input", () => {
 });
 elements.exportButton.addEventListener("click", exportVideo);
 elements.imageExportButton.addEventListener("click", exportImage);
+elements.outputSize.addEventListener("change", () => {
+  resizeOutputCanvas();
+  saveSettings();
+  render();
+});
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !["INPUT", "SELECT", "BUTTON", "TEXTAREA"].includes(document.activeElement.tagName)) {
@@ -1088,6 +1103,7 @@ window.addEventListener("keydown", (event) => {
 
 (async function init() {
   const restoredSettings = restoreSettings();
+  resizeOutputCanvas();
   const storedColumns = Array.isArray(restoredSettings?.columns)
     ? restoredSettings.columns.map((column) => splitReelCharacters(String(column ?? "")))
       .filter((column) => column.length)

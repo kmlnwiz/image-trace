@@ -44,6 +44,12 @@ const elements = {
   imageTime: document.querySelector("#imageTime"),
   stageStatus: document.querySelector("#stageStatus"),
   previewSpeed: document.querySelector("#previewSpeed"),
+  outputSize: document.querySelector("#outputSize"),
+  stageDimensions: document.querySelector("#stageDimensions"),
+  fixedPiecePicker: document.querySelector("#fixedPiecePicker"),
+  fixedPieceCount: document.querySelector("#fixedPieceCount"),
+  clearFixedPieces: document.querySelector("#clearFixedPiecesButton"),
+  selectAllFixedPieces: document.querySelector("#selectAllFixedPiecesButton"),
 };
 
 const context = elements.canvas.getContext("2d");
@@ -56,6 +62,7 @@ const state = {
   localFontName: "",
   lastFontStyle: elements.fontStyle.value,
   legacyStaggerPercent: null,
+  fixedPieceIds: new Set(),
 };
 let player = null;
 
@@ -208,6 +215,8 @@ function saveSettings() {
     showGuide: elements.showGuide.checked,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    outputSize: elements.outputSize.value,
+    fixedPieceIds: [...state.fixedPieceIds],
   });
 }
 
@@ -215,7 +224,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(POLYOMINO_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["gridColumns", "gridRows", "palette", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime"]
+  ["gridColumns", "gridRows", "palette", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   if (Number.isFinite(Number(settings.startInterval))) {
     MotionStorage.restoreControl(elements.stagger, settings.startInterval);
@@ -224,6 +233,9 @@ function restoreSettings() {
   }
   if (typeof settings.showGuide === "boolean") elements.showGuide.checked = settings.showGuide;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
+  if (Array.isArray(settings.fixedPieceIds)) {
+    state.fixedPieceIds = new Set(settings.fixedPieceIds.map(Number).filter(Number.isInteger));
+  }
   state.lastFontStyle = elements.fontStyle.value;
   return settings;
 }
@@ -450,6 +462,46 @@ function buildPlacements(random) {
   }));
 }
 
+function renderFixedPiecePicker() {
+  elements.fixedPiecePicker.replaceChildren();
+  const boardColumns = dimensions().columns;
+  state.pieces.forEach((piece, index) => {
+    const coordinates = piece.cells.map((cell) => ({ column: cell % boardColumns, row: Math.floor(cell / boardColumns) }));
+    const minColumn = Math.min(...coordinates.map((cell) => cell.column));
+    const minRow = Math.min(...coordinates.map((cell) => cell.row));
+    const width = Math.max(...coordinates.map((cell) => cell.column)) - minColumn + 1;
+    const height = Math.max(...coordinates.map((cell) => cell.row)) - minRow + 1;
+    const occupied = new Set(coordinates.map((cell) => `${cell.column - minColumn},${cell.row - minRow}`));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "fixed-piece-button";
+    button.classList.toggle("is-active", state.fixedPieceIds.has(piece.id));
+    button.setAttribute("aria-pressed", String(state.fixedPieceIds.has(piece.id)));
+    button.setAttribute("aria-label", `${index + 1}番のミノを最初から確定`);
+    const number = document.createElement("small");
+    number.textContent = String(index + 1);
+    const shape = document.createElement("span");
+    shape.className = "fixed-piece-shape";
+    shape.style.color = cellColor(piece.readingIndex);
+    shape.style.gridTemplateColumns = `repeat(${width}, 5px)`;
+    for (let row = 0; row < height; row += 1) {
+      for (let column = 0; column < width; column += 1) {
+        const cell = document.createElement("i");
+        cell.classList.toggle("is-empty", !occupied.has(`${column},${row}`));
+        shape.append(cell);
+      }
+    }
+    button.append(number, shape);
+    button.addEventListener("click", () => {
+      if (state.fixedPieceIds.has(piece.id)) state.fixedPieceIds.delete(piece.id);
+      else state.fixedPieceIds.add(piece.id);
+      renderFixedPiecePicker();
+      resetAndRender();
+    });
+    elements.fixedPiecePicker.append(button);
+  });
+}
+
 function sceneLayout() {
   const { columns, rows } = dimensions();
   const packing = state.packing;
@@ -512,24 +564,29 @@ function rebuildPieces() {
     readingIndex: Math.min(...cells),
     randomRank: randomOrder.indexOf(id),
   }));
+  state.fixedPieceIds = new Set([...state.fixedPieceIds].filter((id) => state.pieces.some((piece) => piece.id === id)));
   buildPlacements(random);
+  renderFixedPiecePicker();
 }
 
 function readingRanks() {
-  const sorted = [...state.pieces].sort((a, b) => a.readingIndex - b.readingIndex);
+  const sorted = state.pieces.filter((piece) => !state.fixedPieceIds.has(piece.id)).sort((a, b) => a.readingIndex - b.readingIndex);
   return new Map(sorted.map((piece, rank) => [piece.id, rank]));
 }
 
 function pieceRank(piece) {
+  if (state.fixedPieceIds.has(piece.id)) return 0;
   const mode = elements.returnOrder.value;
   if (mode === "simultaneous") return 0;
-  const readingRank = readingRanks().get(piece.id);
+  const movingPieces = state.pieces.filter((item) => !state.fixedPieceIds.has(item.id));
+  const readingRank = readingRanks().get(piece.id) || 0;
   if (mode === "reading") return readingRank;
-  if (mode === "reverse") return state.pieces.length - 1 - readingRank;
-  return piece.randomRank;
+  if (mode === "reverse") return movingPieces.length - 1 - readingRank;
+  return [...movingPieces].sort((a, b) => a.randomRank - b.randomRank).findIndex((item) => item.id === piece.id);
 }
 
 function pieceLocalProgress(piece, progress) {
+  if (state.fixedPieceIds.has(piece.id)) return 1;
   const simultaneous = elements.returnOrder.value === "simultaneous";
   const total = Number(elements.duration.value);
   const moveTime = Math.min(total, Math.max(0.1, Number(elements.moveDuration.value)));
@@ -538,13 +595,14 @@ function pieceLocalProgress(piece, progress) {
 }
 
 function pieceStartInterval() {
-  if (elements.returnOrder.value === "simultaneous" || state.pieces.length <= 1) return 0;
+  const movingCount = state.pieces.length - state.fixedPieceIds.size;
+  if (elements.returnOrder.value === "simultaneous" || movingCount <= 1) return 0;
   return Number(elements.stagger.value);
 }
 
 function syncStartIntervalLimit() {
-  elements.stagger.max = "10";
-  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 10));
+  elements.stagger.max = "20";
+  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 20));
 }
 
 function pieceAmount(piece, progress) {
@@ -724,6 +782,7 @@ function updateLabels(progress = player?.state.playhead || 0) {
   summaryValues[0].textContent = size;
   summaryValues[1].textContent = pieceCount;
   summaryValues[2].textContent = area;
+  elements.fixedPieceCount.value = `${state.fixedPieceIds.size} / ${pieceCount} 固定`;
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
   elements.moveDuration.max = elements.duration.value;
   if (Number(elements.moveDuration.value) > Number(elements.duration.value)) elements.moveDuration.value = elements.duration.value;
@@ -753,6 +812,7 @@ function rebuildAndReset() {
 }
 
 const restoredSettings = restoreSettings();
+MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
 updateMinoOptions(Number(restoredSettings?.minoSize || 5));
 rebuildPieces();
 if (state.legacyStaggerPercent !== null) {
@@ -795,7 +855,7 @@ elements.shuffle.addEventListener("click", () => {
   .forEach((control) => control.addEventListener("input", resetAndRender));
 [elements.returnOrder, elements.easing]
   .forEach((control) => control.addEventListener("change", resetAndRender));
-elements.palette.addEventListener("change", () => { saveSettings(); updateLabels(); render(); });
+elements.palette.addEventListener("change", () => { renderFixedPiecePicker(); saveSettings(); updateLabels(); render(); });
 elements.fontStyle.addEventListener("change", async () => {
   if (elements.fontStyle.value !== state.lastFontStyle) await clearLocalFont(false);
   state.lastFontStyle = elements.fontStyle.value;
@@ -810,6 +870,20 @@ elements.fontClear.addEventListener("click", () => clearLocalFont(true));
 [elements.textColor, elements.backgroundColor]
   .forEach((control) => control.addEventListener("input", () => { saveSettings(); updateLabels(); render(); }));
 elements.showGuide.addEventListener("change", () => { saveSettings(); render(); });
+elements.outputSize.addEventListener("change", () => {
+  MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
+  rebuildAndReset();
+});
+elements.clearFixedPieces.addEventListener("click", () => {
+  state.fixedPieceIds.clear();
+  renderFixedPiecePicker();
+  resetAndRender();
+});
+elements.selectAllFixedPieces.addEventListener("click", () => {
+  state.fixedPieceIds = new Set(state.pieces.map((piece) => piece.id));
+  renderFixedPiecePicker();
+  resetAndRender();
+});
 updateLabels();
 render();
 restoreLocalFont(restoredSettings);

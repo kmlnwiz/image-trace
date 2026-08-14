@@ -149,6 +149,10 @@
   background: white;
 }
 
+.tool-page .character-input {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", serif;
+}
+
 .tool-page select {
   padding: 0 30px 0 10px;
 }
