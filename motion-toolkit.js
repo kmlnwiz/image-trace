@@ -1,6 +1,8 @@
 "use strict";
 
 (function exposeMotionToolkit() {
+  const FRAME_MS = 1000 / 60;
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -279,16 +281,21 @@
       if (elements.progress) elements.progress.hidden = false;
       if (elements.progressBar) elements.progressBar.style.width = "0%";
       const durationMs = duration() * 1000;
-      const startedAt = performance.now();
       const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+      // Draw the first frame before recording so the stream starts from the head of the animation.
+      state.playhead = 0;
+      render();
       recorder.start(250);
+      const startedAt = performance.now();
       await new Promise((resolve) => {
         function recordFrame(now) {
-          state.playhead = clamp((now - startedAt) / durationMs, 0, 1);
+          const elapsed = now - startedAt;
+          state.playhead = clamp(elapsed / durationMs, 0, 1);
           render();
           update();
           if (elements.progressBar) elements.progressBar.style.width = `${state.playhead * 100}%`;
-          if (state.playhead < 1) requestAnimationFrame(recordFrame);
+          // Keep drawing past the end so the last frame carries its own display time.
+          if (elapsed < durationMs + FRAME_MS) requestAnimationFrame(recordFrame);
           else window.setTimeout(resolve, 100);
         }
         requestAnimationFrame(recordFrame);

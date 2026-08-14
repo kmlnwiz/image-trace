@@ -680,18 +680,24 @@ async function exportVideo() {
   elements.exportProgress.hidden = false;
   elements.exportProgressBar.style.width = "0%";
   const durationMs = Number(elements.duration.value) * 1000;
-  const startedAt = performance.now();
+  const frameMs = 1000 / 60;
   const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+  // Draw the first frame before recording so the stream starts from the head of the animation.
+  state.playhead = 0;
+  render(0);
   recorder.start(250);
+  const startedAt = performance.now();
 
   await new Promise((resolve) => {
     function recordFrame(now) {
-      const progress = clamp((now - startedAt) / durationMs, 0, 1);
+      const elapsed = now - startedAt;
+      const progress = clamp(elapsed / durationMs, 0, 1);
       state.playhead = progress;
       render(progress);
       updateUI();
       elements.exportProgressBar.style.width = `${progress * 100}%`;
-      if (progress < 1) requestAnimationFrame(recordFrame);
+      // Keep drawing past the end so the last frame carries its own display time.
+      if (elapsed < durationMs + frameMs) requestAnimationFrame(recordFrame);
       else window.setTimeout(resolve, 100);
     }
     requestAnimationFrame(recordFrame);
