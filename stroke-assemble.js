@@ -30,6 +30,11 @@ const elements = {
   stagger: document.querySelector("#stagger"),
   staggerValue: document.querySelector("#staggerValue"),
   returnOrder: document.querySelector("#returnOrder"),
+  orderEditor: document.querySelector("#orderPickerEditor"),
+  orderGrid: document.querySelector("#orderPickerGrid"),
+  orderCount: document.querySelector("#orderPickerCount"),
+  orderAllButton: document.querySelector("#orderPickerAllButton"),
+  orderClearButton: document.querySelector("#orderPickerClearButton"),
   easing: document.querySelector("#easing"),
   outputSize: document.querySelector("#outputSize"),
   stageDimensions: document.querySelector("#stageDimensions"),
@@ -38,6 +43,20 @@ const elements = {
   imageTime: document.querySelector("#imageTime"),
 };
 const context = elements.canvas.getContext("2d");
+
+// "指定" mode: the strokes settle in the order they were clicked.
+const orderPicker = MotionOrder.createOrderPicker({
+  grid: elements.orderGrid,
+  countLabel: elements.orderCount,
+  editor: elements.orderEditor,
+  onChange: () => rebuildPlacement(),
+});
+
+// The picker lists every stroke by its number in the writing order.
+function syncOrderPicker() {
+  orderPicker.setItems(state.strokes.map((_, index) => ({ id: index, label: index + 1 })));
+  orderPicker.setVisible(elements.returnOrder.value === "specified");
+}
 const state = {
   character: "集",
   strokes: [],
@@ -69,6 +88,7 @@ function saveSettings() {
     outputSize: elements.outputSize.value,
     previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value,
+    specifiedOrder: orderPicker.getOrder(),
   });
 }
 
@@ -86,6 +106,9 @@ function restoreSettings() {
     MotionStorage.restoreControl(elements.stagger, settings.startInterval);
   } else if (Number.isFinite(Number(settings.stagger))) {
     state.legacyStaggerPercent = Number(settings.stagger);
+  }
+  if (Array.isArray(settings.specifiedOrder)) {
+    orderPicker.setOrder(settings.specifiedOrder.map(Number).filter(Number.isInteger));
   }
 }
 
@@ -202,6 +225,7 @@ function strokeRank(index) {
   if (mode === "random") return state.placements[index].randomRank;
   if (mode === "stroke") return index;
   if (mode === "reverse") return state.strokes.length - 1 - index;
+  if (mode === "specified") return orderPicker.ranks().get(index) ?? index;
   return 0;
 }
 
@@ -334,6 +358,7 @@ async function loadCharacter(character) {
     state.strokes = parsed.strokes;
     state.loading = false;
     buildPlacements();
+    syncOrderPicker();
     migrateLegacyStartInterval();
     syncStrokeStartIntervalLimit();
     setStatus(`${state.strokes.length}画を重なり少なく配置`, "ready");
@@ -353,6 +378,7 @@ async function loadCharacter(character) {
 
 function rebuildPlacement(reset = true) {
   buildPlacements();
+  syncOrderPicker();
   if (reset) player.reset();
   saveSettings();
   updateLabels();
@@ -392,11 +418,14 @@ elements.shuffle.addEventListener("click", () => {
   render();
 }));
 [elements.settleMode, elements.returnOrder, elements.easing].forEach((control) => control.addEventListener("change", () => {
+  syncOrderPicker();
   player.reset();
   saveSettings();
   updateLabels();
   render();
 }));
+elements.orderAllButton.addEventListener("click", () => orderPicker.selectAll());
+elements.orderClearButton.addEventListener("click", () => orderPicker.clear());
 document.querySelectorAll('.color-control input[type="color"]').forEach((input) => input.addEventListener("input", () => { saveSettings(); updateLabels(); render(); }));
 elements.outputSize.addEventListener("change", () => {
   MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions, 800, 800);

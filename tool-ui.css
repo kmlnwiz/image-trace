@@ -538,6 +538,115 @@
   color: #a84035;
 }
 
+/* --- shared "指定" order picker ------------------------------------------- */
+
+.tool-page .order-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.tool-page .order-picker[hidden] {
+  display: none;
+}
+
+.tool-page .order-picker > p {
+  margin: 0;
+}
+
+.tool-page .order-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+
+.tool-page .order-picker-heading strong {
+  font-size: 11px;
+}
+
+.tool-page .order-picker-heading output {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-page .order-picker-grid {
+  max-height: 176px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.tool-page .order-picker-grid button {
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  background: white;
+  cursor: pointer;
+}
+
+.tool-page .order-picker-grid button:hover {
+  border-color: var(--accent);
+}
+
+.tool-page .order-picker-grid button small {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.tool-page .order-picker-grid button.is-assigned {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
+}
+
+.tool-page .order-picker-grid button.is-assigned small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tool-page .order-picker-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.tool-page .order-picker-actions button {
+  min-height: 30px;
+  border: 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  background: #f8fafb;
+  cursor: pointer;
+}
+
+.tool-page .order-picker-actions button + button {
+  border-left: 1px solid var(--line);
+}
+
+.tool-page .order-picker-actions button:hover {
+  background: var(--accent-soft, #eef3f6);
+}
+
 /* --- grabbable seek bar --------------------------------------------------- */
 /* The native thumb inherited the 18px track height and was hard to catch, so
    the timeline gets an explicit track and a thumb big enough to grab. */

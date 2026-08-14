@@ -35,6 +35,11 @@ const elements = {
   moveDuration: document.querySelector("#moveDuration"),
   moveDurationValue: document.querySelector("#moveDurationValue"),
   returnOrder: document.querySelector("#returnOrder"),
+  orderEditor: document.querySelector("#orderPickerEditor"),
+  orderGrid: document.querySelector("#orderPickerGrid"),
+  orderCount: document.querySelector("#orderPickerCount"),
+  orderAllButton: document.querySelector("#orderPickerAllButton"),
+  orderClearButton: document.querySelector("#orderPickerClearButton"),
   stagger: document.querySelector("#stagger"),
   staggerValue: document.querySelector("#staggerValue"),
   easing: document.querySelector("#easing"),
@@ -65,6 +70,14 @@ const state = {
 let player = null;
 
 const fontStore = MotionFonts.createFontStore(FONT_ASSET_KEY);
+
+// "指定" mode: the pieces are returned in the order they were clicked.
+const orderPicker = MotionOrder.createOrderPicker({
+  grid: elements.orderGrid,
+  countLabel: elements.orderCount,
+  editor: elements.orderEditor,
+  onChange: () => resetAndRender(),
+});
 
 function updateFontUI() {
   elements.fontFileName.textContent = state.localFontName || "端末内のフォント";
@@ -162,6 +175,7 @@ function saveSettings() {
     imageTime: elements.imageTime.value,
     outputSize: elements.outputSize.value,
     fixedPieceIds: [...state.fixedPieceIds],
+    specifiedOrder: orderPicker.getOrder(),
   });
 }
 
@@ -180,6 +194,9 @@ function restoreSettings() {
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
   if (Array.isArray(settings.fixedPieceIds)) {
     state.fixedPieceIds = new Set(settings.fixedPieceIds.map(Number).filter(Number.isInteger));
+  }
+  if (Array.isArray(settings.specifiedOrder)) {
+    orderPicker.setOrder(settings.specifiedOrder.map(Number).filter(Number.isInteger));
   }
   state.lastFontStyle = elements.fontStyle.value;
   return settings;
@@ -441,6 +458,7 @@ function renderFixedPiecePicker() {
       if (state.fixedPieceIds.has(piece.id)) state.fixedPieceIds.delete(piece.id);
       else state.fixedPieceIds.add(piece.id);
       renderFixedPiecePicker();
+      syncOrderPicker();
       resetAndRender();
     });
     elements.fixedPiecePicker.append(button);
@@ -512,6 +530,20 @@ function rebuildPieces() {
   state.fixedPieceIds = new Set([...state.fixedPieceIds].filter((id) => state.pieces.some((piece) => piece.id === id)));
   buildPlacements(random);
   renderFixedPiecePicker();
+  syncOrderPicker();
+}
+
+// The picker lists the pieces that actually move, labelled by their first cell
+// so a mino can be told apart on the board.
+function syncOrderPicker() {
+  const boardColumns = dimensions().columns;
+  const moving = state.pieces.filter((piece) => !state.fixedPieceIds.has(piece.id));
+  const sorted = [...moving].sort((a, b) => a.readingIndex - b.readingIndex);
+  orderPicker.setItems(sorted.map((piece) => ({
+    id: piece.id,
+    label: `${piece.readingIndex % boardColumns + 1},${Math.floor(piece.readingIndex / boardColumns) + 1}`,
+  })));
+  orderPicker.setVisible(elements.returnOrder.value === "specified");
 }
 
 function readingRanks() {
@@ -527,6 +559,14 @@ function pieceRank(piece) {
   const readingRank = readingRanks().get(piece.id) || 0;
   if (mode === "reading") return readingRank;
   if (mode === "reverse") return movingPieces.length - 1 - readingRank;
+  if (mode === "specified") {
+    // Only the moving pieces are ranked, so a fixed piece never leaves a gap.
+    const picked = orderPicker.ranks();
+    return movingPieces
+      .slice()
+      .sort((a, b) => (picked.get(a.id) ?? 0) - (picked.get(b.id) ?? 0))
+      .findIndex((item) => item.id === piece.id);
+  }
   return [...movingPieces].sort((a, b) => a.randomRank - b.randomRank).findIndex((item) => item.id === piece.id);
 }
 
@@ -799,7 +839,12 @@ elements.shuffle.addEventListener("click", () => {
 [elements.duration, elements.moveDuration, elements.stagger]
   .forEach((control) => control.addEventListener("input", resetAndRender));
 [elements.returnOrder, elements.easing]
-  .forEach((control) => control.addEventListener("change", resetAndRender));
+  .forEach((control) => control.addEventListener("change", () => {
+    syncOrderPicker();
+    resetAndRender();
+  }));
+elements.orderAllButton.addEventListener("click", () => orderPicker.selectAll());
+elements.orderClearButton.addEventListener("click", () => orderPicker.clear());
 elements.palette.addEventListener("change", () => { renderFixedPiecePicker(); saveSettings(); updateLabels(); render(); });
 elements.fontStyle.addEventListener("change", async () => {
   if (elements.fontStyle.value !== state.lastFontStyle) await clearLocalFont(false);
@@ -822,11 +867,13 @@ elements.outputSize.addEventListener("change", () => {
 elements.clearFixedPieces.addEventListener("click", () => {
   state.fixedPieceIds.clear();
   renderFixedPiecePicker();
+  syncOrderPicker();
   resetAndRender();
 });
 elements.selectAllFixedPieces.addEventListener("click", () => {
   state.fixedPieceIds = new Set(state.pieces.map((piece) => piece.id));
   renderFixedPiecePicker();
+  syncOrderPicker();
   resetAndRender();
 });
 updateLabels();

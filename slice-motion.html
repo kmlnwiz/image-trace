@@ -30,7 +30,13 @@
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
         <section class="control-section"><div class="section-heading"><h2>動き</h2></div>
           <div class="field-row select-row"><label for="direction">移動方向</label><select id="direction"><option value="alternate" selected>交互</option><option value="random">ランダム</option><option value="positive">正方向</option><option value="negative">逆方向</option><option value="center">中心から外側</option></select></div>
-          <div class="field-row select-row"><label for="order">確定順</label><select id="order"><option value="sequence">順番</option><option value="center">中央から</option><option value="edges">両端から</option><option value="random" selected>ランダム</option><option value="simultaneous">同時</option></select></div>
+          <div class="field-row select-row"><label for="order">確定順</label><select id="order"><option value="sequence">順番</option><option value="center">中央から</option><option value="edges">両端から</option><option value="random" selected>ランダム</option><option value="specified">指定</option><option value="simultaneous">同時</option></select></div>
+          <div id="orderPickerEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>断片を順番に選択</strong><output id="orderPickerCount">0 / 0</output></div>
+            <div id="orderPickerGrid" class="order-picker-grid" aria-label="確定順を指定する断片"></div>
+            <div class="order-picker-actions"><button id="orderPickerAllButton" type="button">順番で設定</button><button id="orderPickerClearButton" type="button">すべて解除</button></div>
+            <p class="field-hint">クリックした順に確定します。未指定の断片は、その後に順番で確定します。</p>
+          </div>
           <label class="field-row" for="distance"><span>移動距離</span><output id="distanceValue">75%</output></label><input id="distance" class="range" type="range" min="10" max="140" step="1" value="75" />
           <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">5.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="5" />
           <label class="field-row" for="moveDuration"><span>1枚の移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="5" step="0.1" value="2" />
@@ -43,6 +49,6 @@
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
-    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="slice-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-order.js"></script><script src="slice-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

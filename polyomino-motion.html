@@ -59,7 +59,13 @@
           <div class="section-heading"><h2>戻り方</h2><output id="durationValue" class="meta-value">6.0 秒</output></div>
           <label class="field-row" for="duration"><span>全体時間</span><output>最大90秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="6" />
           <label class="field-row" for="moveDuration"><span>1ミノの移動時間</span><output id="moveDurationValue">2.0 秒 / 120f</output></label><input id="moveDuration" class="range" type="range" min="0.1" max="6" step="0.1" value="2" />
-          <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="simultaneous">同時</option></select></div>
+          <div class="field-row select-row"><label for="returnOrder">戻る順番</label><select id="returnOrder"><option value="random" selected>ランダム</option><option value="reading">左上から</option><option value="reverse">右下から</option><option value="specified">指定</option><option value="simultaneous">同時</option></select></div>
+          <div id="orderPickerEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>ミノを順番に選択</strong><output id="orderPickerCount">0 / 0</output></div>
+            <div id="orderPickerGrid" class="order-picker-grid" aria-label="戻る順番を指定するミノ"></div>
+            <div class="order-picker-actions"><button id="orderPickerAllButton" type="button">左上から設定</button><button id="orderPickerClearButton" type="button">すべて解除</button></div>
+            <p class="field-hint">クリックした順に戻します。未指定のミノは、その後に左上から戻ります。</p>
+          </div>
           <label class="field-row" for="stagger"><span>戻り開始の間隔</span><output id="staggerValue">0.68秒 / 41f</output></label><input id="stagger" class="range" type="range" min="0" max="20" step="0.01" value="0.68" />
           <p class="field-hint">開始間隔は全体時間と独立しています。各ミノを0秒、設定秒、設定秒×2…に戻し始め、完成後はその状態を表示します。</p>
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="backOut">少し弾む</option><option value="linear">一定</option></select></div>
@@ -84,6 +90,6 @@
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="motion-storage.js"></script>
-    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="polyomino-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-fonts.js"></script><script src="motion-order.js"></script><script src="polyomino-motion.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
   </body>
 </html>

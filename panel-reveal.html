@@ -54,10 +54,10 @@ TYPE PANEL 1</textarea>
           <div class="section-heading"><h2>表へ戻す順番</h2></div>
           <div class="field-row select-row"><label for="orderMode">順番</label><select id="orderMode"><option value="type" selected>文字種ごと</option><option value="specified">指定</option><option value="random">ランダム</option></select></div>
           <p id="orderHint" class="field-hint">文章に最初に現れた文字種から、同じ文字種のパネルをまとめて戻します。</p>
-          <div id="specifiedOrderEditor" class="reveal-order-editor" hidden>
-            <div class="timing-editor-heading"><strong>パネルを順番に選択</strong><output id="specifiedCount">0 / 0</output></div>
-            <div id="specifiedOrderGrid" class="reveal-order-grid" aria-label="表へ戻す順番を指定するパネル"></div>
-            <div class="reveal-order-actions"><button id="sequenceOrderButton" type="button">左から設定</button><button id="clearOrderButton" type="button">すべて解除</button></div>
+          <div id="specifiedOrderEditor" class="order-picker" hidden>
+            <div class="order-picker-heading"><strong>パネルを順番に選択</strong><output id="specifiedCount">0 / 0</output></div>
+            <div id="specifiedOrderGrid" class="order-picker-grid" aria-label="表へ戻す順番を指定するパネル"></div>
+            <div class="order-picker-actions"><button id="sequenceOrderButton" type="button">左から設定</button><button id="clearOrderButton" type="button">すべて解除</button></div>
           </div>
           <button id="shuffleButton" class="button button-accent" type="button" hidden><span aria-hidden="true">↝</span>順番を再抽選</button>
         </section>

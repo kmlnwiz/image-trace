@@ -18,7 +18,7 @@ const state = { image: null, imageName: "sample-slices.png", imageBytes: 0, imag
 let player = null;
 
 function saveSettings() {
-  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, moveDuration: elements.moveDuration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value, outputSize: elements.outputSize.value });
+  MotionStorage.write(SLICE_SETTINGS_KEY, { layout: state.layout, seed: state.seed, imageFit: elements.imageFit.value, columns: elements.columns.value, rows: elements.rows.value, gap: elements.gap.value, backgroundColor: elements.backgroundColor.value, fade: elements.fade.checked, direction: elements.direction.value, order: elements.order.value, specifiedOrder: orderPicker.getOrder(), distance: elements.distance.value, stagger: elements.stagger.value, duration: elements.duration.value, moveDuration: elements.moveDuration.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value, imageTime: elements.imageTime.value, outputSize: elements.outputSize.value });
 }
 
 function restoreSettings() {
@@ -27,6 +27,7 @@ function restoreSettings() {
   if (["vertical", "horizontal", "grid"].includes(settings.layout)) state.layout = settings.layout;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
   ["imageFit", "columns", "rows", "gap", "backgroundColor", "direction", "order", "distance", "stagger", "duration", "moveDuration", "easing", "previewSpeed", "imageTime", "outputSize"].forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+  if (Array.isArray(settings.specifiedOrder)) orderPicker.setOrder(settings.specifiedOrder.map(Number).filter(Number.isInteger));
   if (typeof settings.fade === "boolean") elements.fade.checked = settings.fade;
 }
 
@@ -51,7 +52,21 @@ function rebuildPieces() {
     }
   }
   state.pieces = pieces;
+  syncOrderPicker();
   updateLabels();
+}
+
+// "指定" mode: the fragments settle in the order they were clicked.
+const orderPicker = MotionOrder.createOrderPicker({
+  grid: document.querySelector("#orderPickerGrid"),
+  countLabel: document.querySelector("#orderPickerCount"),
+  editor: document.querySelector("#orderPickerEditor"),
+  onChange: () => { player.reset(); saveSettings(); render(); },
+});
+
+function syncOrderPicker() {
+  orderPicker.setItems(state.pieces.map((piece) => ({ id: piece.index, label: piece.index + 1 })));
+  orderPicker.setVisible(elements.order.value === "specified");
 }
 
 function rankFor(piece) {
@@ -62,6 +77,7 @@ function rankFor(piece) {
   const linear = piece.index;
   if (mode === "center") return Math.floor(Math.abs(linear - (count - 1) / 2));
   if (mode === "edges") return Math.min(linear, count - 1 - linear);
+  if (mode === "specified") return orderPicker.ranks().get(piece.index) ?? linear;
   return linear;
 }
 
@@ -207,7 +223,9 @@ elements.sample.addEventListener("click", async () => setImage(await makeSample(
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => { rebuildPieces(); player.reset(); saveSettings(); render(); }));
 [elements.gap, elements.distance, elements.stagger, elements.duration, elements.moveDuration].forEach((control) => control.addEventListener("input", () => { player.reset(); updateLabels(); saveSettings(); render(); }));
-[elements.imageFit, elements.direction, elements.order, elements.easing].forEach((control) => control.addEventListener("change", () => { if (control === elements.order) rebuildPieces(); player.reset(); saveSettings(); render(); }));
+[elements.imageFit, elements.direction, elements.order, elements.easing].forEach((control) => control.addEventListener("change", () => { if (control === elements.order) rebuildPieces(); syncOrderPicker(); player.reset(); saveSettings(); render(); }));
+document.querySelector("#orderPickerAllButton").addEventListener("click", () => orderPicker.selectAll());
+document.querySelector("#orderPickerClearButton").addEventListener("click", () => orderPicker.clear());
 [elements.backgroundColor, elements.fade].forEach((control) => control.addEventListener("input", () => { updateLabels(); saveSettings(); render(); }));
 elements.shuffle.addEventListener("click", () => { state.seed = Date.now(); rebuildPieces(); player.reset(); saveSettings(); render(); player.showToast("確定順と方向をシャッフルしました"); });
 elements.outputSize.addEventListener("change", () => { MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions); player.reset(); saveSettings(); render(); });
