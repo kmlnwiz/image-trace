@@ -47,6 +47,7 @@ const state = {
   requestId: 0,
   controller: null,
   loadTimer: 0,
+  legacyStaggerPercent: null,
 };
 
 function saveSettings() {
@@ -62,7 +63,7 @@ function saveSettings() {
     duration: elements.duration.value,
     moveDuration: elements.moveDuration.value,
     settleMode: elements.settleMode.value,
-    stagger: elements.stagger.value,
+    startInterval: elements.stagger.value,
     returnOrder: elements.returnOrder.value,
     easing: elements.easing.value,
     outputSize: elements.outputSize.value,
@@ -79,8 +80,13 @@ function restoreSettings() {
     elements.character.value = state.character;
   }
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  const controls = ["regionSize", "rotation", "scaleVariation", "guideOpacity", "inkColor", "backgroundColor", "duration", "moveDuration", "settleMode", "stagger", "returnOrder", "easing", "outputSize", "previewSpeed", "imageTime"];
+  const controls = ["regionSize", "rotation", "scaleVariation", "guideOpacity", "inkColor", "backgroundColor", "duration", "moveDuration", "settleMode", "returnOrder", "easing", "outputSize", "previewSpeed", "imageTime"];
   controls.forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+  if (Number.isFinite(Number(settings.startInterval))) {
+    MotionStorage.restoreControl(elements.stagger, settings.startInterval);
+  } else if (Number.isFinite(Number(settings.stagger))) {
+    state.legacyStaggerPercent = Number(settings.stagger);
+  }
 }
 
 function setStatus(message, type = "loading") {
@@ -199,17 +205,33 @@ function strokeMoveTime() {
   const mode = elements.returnOrder.value;
   const total = Number(elements.duration.value);
   const maximum = elements.settleMode.value === "sequential" && mode !== "simultaneous"
-    ? total / Math.max(1, state.strokes.length)
+    ? Math.max(0.02, Number(elements.stagger.value))
     : total;
   return MotionToolkit.clamp(Number(elements.moveDuration.value), 0.02, Math.max(0.02, maximum));
 }
 
 function strokeStartInterval() {
   if (elements.returnOrder.value === "simultaneous" || state.strokes.length <= 1) return 0;
-  const moveTime = strokeMoveTime();
-  if (elements.settleMode.value === "sequential") return moveTime;
+  return Number(elements.stagger.value);
+}
+
+function syncStrokeStartIntervalLimit() {
+  elements.stagger.max = "10";
+  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 10));
+}
+
+function migrateLegacyStartInterval() {
+  if (state.legacyStaggerPercent === null || state.strokes.length <= 1) return;
+  if (elements.settleMode.value === "sequential" && elements.returnOrder.value !== "simultaneous") {
+    elements.stagger.value = String(strokeMoveTime());
+    state.legacyStaggerPercent = null;
+    return;
+  }
   const total = Number(elements.duration.value);
-  return Math.max(0, total - moveTime) * Number(elements.stagger.value) / 100 / Math.max(1, state.strokes.length - 1);
+  const moveTime = strokeMoveTime();
+  const startWindow = Math.max(0, total - moveTime) * state.legacyStaggerPercent / 100;
+  elements.stagger.value = String(startWindow / (state.strokes.length - 1));
+  state.legacyStaggerPercent = null;
 }
 
 function strokeLocalProgress(index, progress) {
@@ -265,16 +287,16 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.scaleVariationValue.value = `${elements.scaleVariation.value}%`;
   elements.guideOpacityValue.value = `${elements.guideOpacity.value}%`;
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
-  const sequentialMaximum = Number(elements.duration.value) / Math.max(1, state.strokes.length);
-  elements.moveDuration.max = String(elements.settleMode.value === "sequential" && elements.returnOrder.value !== "simultaneous" ? Math.max(0.02, sequentialMaximum) : elements.duration.value);
+  const sequentialMaximum = Math.max(0.02, Number(elements.stagger.value));
+  elements.moveDuration.max = String(elements.settleMode.value === "sequential" && elements.returnOrder.value !== "simultaneous" ? sequentialMaximum : elements.duration.value);
   if (Number(elements.moveDuration.value) > Number(elements.moveDuration.max)) elements.moveDuration.value = elements.moveDuration.max;
+  syncStrokeStartIntervalLimit();
   const moveTime = strokeMoveTime();
   elements.moveDurationValue.value = `${moveTime.toFixed(moveTime < 0.1 ? 2 : 1)} 秒 / ${Math.round(moveTime * 60)}f`;
   const interval = strokeStartInterval();
   if (elements.returnOrder.value === "simultaneous") elements.staggerValue.value = "同時";
-  else if (elements.settleMode.value === "sequential") elements.staggerValue.value = `1画ずつ · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
-  else elements.staggerValue.value = `${elements.stagger.value}% · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
-  elements.stagger.disabled = elements.settleMode.value === "sequential" || elements.returnOrder.value === "simultaneous";
+  else elements.staggerValue.value = `${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
+  elements.stagger.disabled = elements.returnOrder.value === "simultaneous";
   elements.overlapTimingControls.hidden = false;
   document.querySelectorAll('.color-control input[type="color"]').forEach((input) => { input.nextElementSibling.value = input.value.toUpperCase(); });
   const fixed = state.strokes.filter((_, index) => strokeAmount(index, progress) >= 0.999).length;
@@ -308,6 +330,8 @@ async function loadCharacter(character) {
     state.strokes = parsed.strokes;
     state.loading = false;
     buildPlacements();
+    migrateLegacyStartInterval();
+    syncStrokeStartIntervalLimit();
     setStatus(`${state.strokes.length}画を重なり少なく配置`, "ready");
     setMessage();
     saveSettings();

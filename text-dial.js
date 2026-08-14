@@ -28,6 +28,7 @@ const elements = {
   visibleNeighbors: document.querySelector("#visibleNeighbors"),
   visibleNeighborsValue: document.querySelector("#visibleNeighborsValue"),
   returnOrder: document.querySelector("#returnOrder"),
+  totalDuration: document.querySelector("#totalDuration"),
   duration: document.querySelector("#duration"),
   durationValue: document.querySelector("#durationValue"),
   stagger: document.querySelector("#stagger"),
@@ -136,6 +137,7 @@ function saveDialSettings() {
     text: elements.textInput.value,
     animated: state.animated,
     direction: currentDirection(),
+    totalDuration: elements.totalDuration.value,
     duration: elements.duration.value,
     stagger: elements.stagger.value,
     easing: elements.easing.value,
@@ -169,6 +171,7 @@ function restoreDialSettings() {
   }
   const controls = {
     stagger: elements.stagger,
+    totalDuration: elements.totalDuration,
     duration: elements.duration,
     shiftAmount: elements.shiftAmount,
     visibleNeighbors: elements.visibleNeighbors,
@@ -181,6 +184,15 @@ function restoreDialSettings() {
     previewSpeed: elements.previewSpeed,
   };
   Object.entries(controls).forEach(([name, control]) => MotionStorage.restoreControl(control, settings[name]));
+  if (!Number.isFinite(Number(settings.totalDuration))) {
+    const animatedCount = Array.isArray(settings.animated)
+      ? settings.animated.filter(Boolean).length
+      : splitCharacters(elements.textInput.value).filter((character) => canAnimateCharacter(character)).length;
+    const finalDelay = elements.returnOrder.value === "together"
+      ? 0
+      : Math.max(0, animatedCount - 1) * Number(elements.stagger.value);
+    elements.totalDuration.value = String(Math.min(90, Number(elements.duration.value) + finalDelay));
+  }
   elements.colorControls.forEach((input) => {
     input.nextElementSibling.value = input.value.toUpperCase();
   });
@@ -309,19 +321,16 @@ function randomizeReturnOrder() {
 }
 
 function getTotalDuration() {
-  const hasAnimatedCharacter = state.animated.some(Boolean);
-  if (!hasAnimatedCharacter) return Number(elements.duration.value);
-  return Math.min(90, Number(elements.duration.value) + maxReturnRank() * Number(elements.stagger.value));
+  return clamp(Number(elements.totalDuration.value), 0.5, 90);
 }
 
 function syncDialTimeLimits() {
-  const finalDelay = state.animated.some(Boolean)
-    ? maxReturnRank() * Number(elements.stagger.value)
-    : 0;
-  const maxDuration = Math.max(0.5, 90 - finalDelay);
-  elements.duration.max = String(maxDuration);
-  elements.duration.value = String(clamp(Number(elements.duration.value), 0.5, maxDuration));
   const totalDuration = getTotalDuration();
+  elements.totalDuration.value = String(totalDuration);
+  elements.duration.max = String(totalDuration);
+  elements.duration.value = String(clamp(Number(elements.duration.value), 0.5, totalDuration));
+  elements.stagger.max = "10";
+  elements.stagger.value = String(clamp(Number(elements.stagger.value), 0, 10));
   elements.imageTime.max = String(totalDuration);
   elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, totalDuration));
   elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
@@ -652,6 +661,8 @@ function updateUI() {
   elements.timeline.value = String(Math.round(state.playhead * 1000));
   elements.currentTime.value = formatTime(state.playhead * totalDuration);
   elements.totalTime.value = formatTime(totalDuration);
+  elements.imageTime.max = String(totalDuration);
+  elements.imageTime.value = String(clamp(state.playhead * totalDuration, 0, totalDuration));
   elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
 }
 
@@ -767,8 +778,7 @@ function exportImage() {
   if (!state.characters.length) return;
   stopPlayback(false);
   const totalDuration = getTotalDuration();
-  state.playhead = totalDuration ? Number(elements.imageTime.value) / totalDuration : 0;
-  state.playhead = clamp(state.playhead, 0, 1);
+  const seconds = state.playhead * totalDuration;
   render(state.playhead);
   updateUI();
   elements.canvas.toBlob((blob) => {
@@ -779,7 +789,7 @@ function exportImage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `dial-type-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.download = `dial-type-${seconds.toFixed(1)}s.png`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
@@ -840,7 +850,7 @@ elements.alternateDirectionLabel.addEventListener("click", (event) => {
   alternateWasSelected = false;
 });
 
-[elements.duration, elements.stagger].forEach((input) => {
+[elements.totalDuration, elements.duration, elements.stagger].forEach((input) => {
   input.addEventListener("input", () => {
     state.playhead = 0;
     stopPlayback();
@@ -889,7 +899,9 @@ elements.previewSpeed.addEventListener("change", () => {
   }
 });
 elements.imageTime.addEventListener("input", () => {
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  const totalDuration = getTotalDuration();
+  state.playhead = totalDuration ? clamp(Number(elements.imageTime.value) / totalDuration, 0, 1) : 0;
+  stopPlayback();
   saveDialSettings();
 });
 elements.exportButton.addEventListener("click", exportVideo);

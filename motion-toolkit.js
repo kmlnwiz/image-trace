@@ -134,6 +134,10 @@
       return options.isReady ? Boolean(options.isReady()) : true;
     }
 
+    if (elements.imageTime) {
+      state.playhead = clamp(Number(elements.imageTime.value) / duration(), 0, 1);
+    }
+
     function showToast(message) {
       if (!elements.toast) return;
       clearTimeout(state.toastTimer);
@@ -155,7 +159,7 @@
       if (elements.restart) elements.restart.disabled = !available() || state.isExporting;
       if (elements.imageTime) {
         elements.imageTime.max = String(total);
-        elements.imageTime.value = String(clamp(Number(elements.imageTime.value), 0, total));
+        elements.imageTime.value = String(clamp(state.playhead * total, 0, total));
       }
       if (elements.imageTimeValue && elements.imageTime) {
         elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
@@ -275,8 +279,7 @@
     function exportImage() {
       if (!available() || state.isExporting) return;
       stop(false);
-      const seconds = Number(elements.imageTime?.value || 0);
-      state.playhead = clamp(seconds / duration(), 0, 1);
+      const seconds = state.playhead * duration();
       render();
       update();
       canvas.toBlob((blob) => {
@@ -301,7 +304,7 @@
       }
     });
     elements.imageTime?.addEventListener("input", () => {
-      update();
+      setProgress(Number(elements.imageTime.value) / duration());
       options.onControlChange?.();
     });
     elements.imageExport?.addEventListener("click", exportImage);

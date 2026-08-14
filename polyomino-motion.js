@@ -55,6 +55,7 @@ const state = {
   localFontFamily: "",
   localFontName: "",
   lastFontStyle: elements.fontStyle.value,
+  legacyStaggerPercent: null,
 };
 let player = null;
 
@@ -202,7 +203,7 @@ function saveSettings() {
     duration: elements.duration.value,
     moveDuration: elements.moveDuration.value,
     returnOrder: elements.returnOrder.value,
-    stagger: elements.stagger.value,
+    startInterval: elements.stagger.value,
     easing: elements.easing.value,
     showGuide: elements.showGuide.checked,
     previewSpeed: elements.previewSpeed.value,
@@ -214,8 +215,13 @@ function restoreSettings() {
   const settings = MotionStorage.read(POLYOMINO_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["gridColumns", "gridRows", "palette", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "stagger", "easing", "previewSpeed", "imageTime"]
+  ["gridColumns", "gridRows", "palette", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+  if (Number.isFinite(Number(settings.startInterval))) {
+    MotionStorage.restoreControl(elements.stagger, settings.startInterval);
+  } else if (Number.isFinite(Number(settings.stagger))) {
+    state.legacyStaggerPercent = Number(settings.stagger);
+  }
   if (typeof settings.showGuide === "boolean") elements.showGuide.checked = settings.showGuide;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
   state.lastFontStyle = elements.fontStyle.value;
@@ -525,19 +531,20 @@ function pieceRank(piece) {
 
 function pieceLocalProgress(piece, progress) {
   const simultaneous = elements.returnOrder.value === "simultaneous";
-  const maxRank = Math.max(1, state.pieces.length - 1);
   const total = Number(elements.duration.value);
   const moveTime = Math.min(total, Math.max(0.1, Number(elements.moveDuration.value)));
-  const startWindow = Math.max(0, total - moveTime) * Number(elements.stagger.value) / 100;
-  const delay = simultaneous ? 0 : startWindow * pieceRank(piece) / maxRank;
+  const delay = simultaneous ? 0 : pieceStartInterval() * pieceRank(piece);
   return MotionToolkit.clamp((progress * total - delay) / moveTime, 0, 1);
 }
 
 function pieceStartInterval() {
   if (elements.returnOrder.value === "simultaneous" || state.pieces.length <= 1) return 0;
-  const total = Number(elements.duration.value);
-  const moveTime = Math.min(total, Math.max(0.1, Number(elements.moveDuration.value)));
-  return Math.max(0, total - moveTime) * Number(elements.stagger.value) / 100 / (state.pieces.length - 1);
+  return Number(elements.stagger.value);
+}
+
+function syncStartIntervalLimit() {
+  elements.stagger.max = "10";
+  elements.stagger.value = String(MotionToolkit.clamp(Number(elements.stagger.value) || 0, 0, 10));
 }
 
 function pieceAmount(piece, progress) {
@@ -720,10 +727,11 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
   elements.moveDuration.max = elements.duration.value;
   if (Number(elements.moveDuration.value) > Number(elements.duration.value)) elements.moveDuration.value = elements.duration.value;
+  syncStartIntervalLimit();
   const moveTime = Number(elements.moveDuration.value);
   elements.moveDurationValue.value = `${moveTime.toFixed(1)} 秒 / ${Math.round(moveTime * 60)}f`;
   const interval = pieceStartInterval();
-  elements.staggerValue.value = elements.returnOrder.value === "simultaneous" ? "同時" : `${elements.stagger.value}% · ${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
+  elements.staggerValue.value = elements.returnOrder.value === "simultaneous" ? "同時" : `${interval.toFixed(2)}秒 / ${Math.round(interval * 60)}f`;
   elements.stagger.disabled = elements.returnOrder.value === "simultaneous";
   [elements.textColor, elements.backgroundColor].forEach((control) => { control.nextElementSibling.value = control.value.toUpperCase(); });
   const settled = state.pieces.filter((piece) => pieceLocalProgress(piece, progress) >= 0.999).length;
@@ -747,6 +755,14 @@ function rebuildAndReset() {
 const restoredSettings = restoreSettings();
 updateMinoOptions(Number(restoredSettings?.minoSize || 5));
 rebuildPieces();
+if (state.legacyStaggerPercent !== null) {
+  const total = Number(elements.duration.value);
+  const moveTime = Math.min(total, Math.max(0.1, Number(elements.moveDuration.value)));
+  const legacyWindow = Math.max(0, total - moveTime) * state.legacyStaggerPercent / 100;
+  elements.stagger.value = String(legacyWindow / Math.max(1, state.pieces.length - 1));
+  state.legacyStaggerPercent = null;
+}
+syncStartIntervalLimit();
 updateFontUI();
 
 player = MotionToolkit.createPlayer({

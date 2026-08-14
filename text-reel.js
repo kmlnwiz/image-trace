@@ -832,6 +832,8 @@ function updateUI() {
   elements.timeline.value = String(Math.round(state.playhead * 1000));
   elements.currentTime.value = formatTime(state.playhead * duration);
   elements.totalTime.value = formatTime(duration);
+  elements.imageTime.max = String(duration);
+  elements.imageTime.value = String(clamp(state.playhead * duration, 0, duration));
   elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
 }
 
@@ -999,8 +1001,7 @@ function exportImage() {
   if (!state.columns.length) return;
   stopPlayback(false);
   const duration = Number(elements.duration.value);
-  state.playhead = duration ? Number(elements.imageTime.value) / duration : 0;
-  state.playhead = clamp(state.playhead, 0, 1);
+  const seconds = state.playhead * duration;
   render(state.playhead);
   updateUI();
   elements.canvas.toBlob((blob) => {
@@ -1011,7 +1012,7 @@ function exportImage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `text-reel-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.download = `text-reel-${seconds.toFixed(1)}s.png`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
@@ -1069,7 +1070,9 @@ elements.previewSpeed.addEventListener("change", () => {
   }
 });
 elements.imageTime.addEventListener("input", () => {
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  const duration = Number(elements.duration.value);
+  state.playhead = duration ? clamp(Number(elements.imageTime.value) / duration, 0, 1) : 0;
+  stopPlayback();
   saveSettings();
 });
 elements.exportButton.addEventListener("click", exportVideo);

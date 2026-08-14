@@ -453,6 +453,9 @@ function updateUI() {
   elements.timeline.value = String(Math.round(state.playhead * 1000));
   elements.currentTime.value = formatTime(state.playhead * duration);
   elements.totalTime.value = formatTime(duration);
+  elements.imageTime.max = String(duration);
+  elements.imageTime.value = String(clamp(state.playhead * duration, 0, duration));
+  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
   elements.playButton.textContent = state.isPlaying ? "Ⅱ" : "▶";
   elements.playButton.setAttribute("aria-label", state.isPlaying ? "一時停止" : "再生");
   elements.playButton.disabled = !hasData || state.isLoading || state.isExporting;
@@ -596,8 +599,7 @@ function exportImage() {
   if (!state.strokes.length) return;
   stopPlayback(false);
   const duration = getTotalDuration();
-  state.playhead = duration ? Number(elements.imageTime.value) / duration : 0;
-  state.playhead = clamp(state.playhead, 0, 1);
+  const seconds = state.playhead * duration;
   render();
   updateUI();
   elements.canvas.toBlob((blob) => {
@@ -608,7 +610,7 @@ function exportImage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${safeFileCharacter()}-random-kanji-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.download = `${safeFileCharacter()}-random-kanji-${seconds.toFixed(1)}s.png`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
@@ -689,7 +691,9 @@ elements.previewSpeed.addEventListener("change", () => {
   }
 });
 elements.imageTime.addEventListener("input", () => {
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  const duration = getTotalDuration();
+  state.playhead = duration ? clamp(Number(elements.imageTime.value) / duration, 0, 1) : 0;
+  stopPlayback();
   saveSettings();
 });
 elements.outputSize.addEventListener("change", () => {

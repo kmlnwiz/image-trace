@@ -20,8 +20,11 @@ const elements = {
   orderSummary: document.querySelector("#orderSummary"),
   directionSummary: document.querySelector("#directionSummary"),
   orderShuffleButton: document.querySelector("#orderShuffleButton"),
+  strokeLimit: document.querySelector("#strokeLimit"),
   duration: document.querySelector("#duration"),
   durationValue: document.querySelector("#durationValue"),
+  strokeDuration: document.querySelector("#strokeDuration"),
+  strokeDurationValue: document.querySelector("#strokeDurationValue"),
   strokeInterval: document.querySelector("#strokeInterval"),
   strokeIntervalValue: document.querySelector("#strokeIntervalValue"),
   easing: document.querySelector("#easing"),
@@ -63,7 +66,6 @@ const state = {
   character: "逆",
   sourceStrokes: [],
   strokes: [],
-  totalStrokeWeight: 0,
   playhead: 0,
   isPlaying: false,
   isExporting: false,
@@ -74,6 +76,7 @@ const state = {
   loadTimer: 0,
   loadRequestId: 0,
   loadController: null,
+  strokeLimitPreference: "all",
 };
 
 function clamp(value, min, max) {
@@ -110,7 +113,9 @@ function saveSettings() {
   MotionStorage.write(KANJI_SETTINGS_KEY, {
     character: state.character,
     strokeOrderMode: elements.strokeOrderMode.value,
+    strokeLimit: elements.strokeLimit.value,
     duration: elements.duration.value,
+    strokeDuration: elements.strokeDuration.value,
     strokeInterval: elements.strokeInterval.value,
     easing: elements.easing.value,
     guideOpacity: elements.guideOpacity.value,
@@ -132,6 +137,7 @@ function restoreSettings() {
   const controls = {
     strokeOrderMode: elements.strokeOrderMode,
     duration: elements.duration,
+    strokeDuration: elements.strokeDuration,
     strokeInterval: elements.strokeInterval,
     easing: elements.easing,
     guideOpacity: elements.guideOpacity,
@@ -143,6 +149,10 @@ function restoreSettings() {
   Object.entries(controls).forEach(([name, control]) => {
     MotionStorage.restoreControl(control, settings[name]);
   });
+  if (settings.strokeLimit === "all"
+    || (Number.isInteger(Number(settings.strokeLimit)) && Number(settings.strokeLimit) >= 1)) {
+    state.strokeLimitPreference = String(settings.strokeLimit);
+  }
   elements.colorControls.forEach((input) => {
     input.nextElementSibling.value = input.value.toUpperCase();
   });
@@ -232,7 +242,6 @@ function parseCharacterData(data) {
       median: extendedMedian,
       cumulative,
       length,
-      weight: Math.max(28, Math.pow(length, 0.78)),
     };
   });
   return forwardStrokes;
@@ -256,7 +265,37 @@ function applyStrokeOrder() {
   } else {
     state.strokes = [...state.sourceStrokes];
   }
-  state.totalStrokeWeight = state.strokes.reduce((sum, stroke) => sum + stroke.weight, 0);
+}
+
+function strokeLimit() {
+  if (elements.strokeLimit.value === "all") return state.strokes.length;
+  return clamp(Math.round(Number(elements.strokeLimit.value) || 1), 1, state.strokes.length);
+}
+
+function animatedStrokes() {
+  return state.strokes.slice(0, strokeLimit());
+}
+
+function rebuildStrokeLimitOptions() {
+  const previousValue = state.strokeLimitPreference || elements.strokeLimit.value || "all";
+  elements.strokeLimit.replaceChildren();
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "最後まで";
+  elements.strokeLimit.append(allOption);
+
+  state.strokes.forEach((_, index) => {
+    const option = document.createElement("option");
+    option.value = String(index + 1);
+    option.textContent = `第${index + 1}画まで`;
+    elements.strokeLimit.append(option);
+  });
+
+  const canRestore = previousValue === "all"
+    || (Number(previousValue) >= 1 && Number(previousValue) <= state.strokes.length);
+  elements.strokeLimit.value = canRestore ? previousValue : "all";
+  state.strokeLimitPreference = elements.strokeLimit.value;
 }
 
 function pointOutsideStroke(shape, edge, neighbor) {
@@ -312,7 +351,6 @@ async function loadStrokeData(character) {
   state.isLoading = true;
   state.sourceStrokes = [];
   state.strokes = [];
-  state.totalStrokeWeight = 0;
   state.playhead = 0;
   syncIntervalLimit();
   stopPlayback(false);
@@ -327,6 +365,7 @@ async function loadStrokeData(character) {
     if (requestId !== state.loadRequestId) return;
     state.sourceStrokes = strokes;
     applyStrokeOrder();
+    rebuildStrokeLimitOptions();
     state.isLoading = false;
     syncIntervalLimit();
     saveSettings();
@@ -366,18 +405,16 @@ function resizeOutputCanvas() {
 }
 
 function strokeAmounts(progress) {
-  if (!state.totalStrokeWeight) return [];
+  const strokes = animatedStrokes();
+  if (!strokes.length) return state.strokes.map(() => 0);
   const duration = Number(elements.duration.value);
+  const strokeDuration = Math.max(0.01, Number(elements.strokeDuration.value));
   const interval = Number(elements.strokeInterval.value);
-  const intervalTotal = interval * Math.max(0, state.strokes.length - 1);
-  const drawingTime = Math.max(0.001, duration - intervalTotal);
   const cursor = clamp(progress, 0, 1) * duration;
-  let elapsedSeconds = 0;
   return state.strokes.map((stroke, index) => {
-    const strokeDuration = drawingTime * stroke.weight / state.totalStrokeWeight;
-    const amount = ease((cursor - elapsedSeconds) / strokeDuration);
-    elapsedSeconds += strokeDuration;
-    if (index < state.strokes.length - 1) elapsedSeconds += interval;
+    if (index >= strokes.length) return 0;
+    const startTime = index * interval;
+    const amount = ease((cursor - startTime) / strokeDuration);
     return clamp(amount, 0, 1);
   });
 }
@@ -488,7 +525,7 @@ function render(progress = state.playhead) {
 }
 
 function activeStrokeNumber() {
-  const amounts = strokeAmounts(state.playhead);
+  const amounts = strokeAmounts(state.playhead).slice(0, strokeLimit());
   const activeIndex = amounts.findIndex((amount) => amount < 1);
   if (activeIndex < 0) return null;
   return state.strokes[activeIndex]?.number || null;
@@ -502,24 +539,21 @@ function syncTimeLimits() {
 }
 
 function syncIntervalLimit() {
-  const strokeCount = state.strokes.length;
+  const strokeCount = strokeLimit();
   if (!strokeCount) {
-    elements.strokeInterval.max = "5";
+    elements.strokeInterval.max = "10";
     elements.strokeInterval.disabled = true;
     return;
   }
-  const duration = Number(elements.duration.value);
-  const maxInterval = strokeCount > 1
-    ? Math.min(5, duration * 0.9 / (strokeCount - 1))
-    : 0;
-  elements.strokeInterval.max = maxInterval.toFixed(2);
-  elements.strokeInterval.value = String(clamp(Number(elements.strokeInterval.value), 0, maxInterval));
+  elements.strokeInterval.max = "10";
+  elements.strokeInterval.value = String(clamp(Number(elements.strokeInterval.value), 0, 10));
   elements.strokeInterval.disabled = strokeCount <= 1;
 }
 
 function updateUI() {
   const duration = Number(elements.duration.value);
   const hasData = state.strokes.length > 0;
+  const animatedCount = strokeLimit();
   const mode = elements.strokeOrderMode.value;
   const modeSummaries = {
     normal: ["最初 → 最後", "始点 → 終点"],
@@ -531,17 +565,23 @@ function updateUI() {
   elements.directionSummary.textContent = directionSummary;
   elements.orderShuffleButton.hidden = mode !== "random";
   elements.durationValue.value = `${duration.toFixed(1)} 秒`;
+  elements.strokeDurationValue.value = `${Number(elements.strokeDuration.value).toFixed(2)} 秒`;
   elements.strokeIntervalValue.value = `${Number(elements.strokeInterval.value).toFixed(2)} 秒`;
   elements.guideOpacityValue.value = `${elements.guideOpacity.value}%`;
   elements.strokeCount.value = hasData ? `${state.strokes.length} 画` : "— 画";
   elements.timeline.value = String(Math.round(state.playhead * 1000));
   elements.currentTime.value = formatTime(state.playhead * duration);
   elements.totalTime.value = formatTime(duration);
+  elements.imageTime.max = String(duration);
+  elements.imageTime.value = String(clamp(state.playhead * duration, 0, duration));
+  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
   elements.playButton.textContent = state.isPlaying ? "Ⅱ" : "▶";
   elements.playButton.setAttribute("aria-label", state.isPlaying ? "一時停止" : "再生");
   elements.playButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.restartButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.strokeOrderMode.disabled = state.isLoading || state.isExporting;
+  elements.strokeLimit.disabled = !hasData || state.isLoading || state.isExporting;
+  elements.strokeDuration.disabled = !hasData || state.isLoading || state.isExporting;
   elements.orderShuffleButton.disabled = !hasData || state.isLoading || state.isExporting;
   elements.outputSize.disabled = state.isExporting;
   elements.exportButton.disabled = !hasData || state.isLoading || state.isExporting;
@@ -554,13 +594,13 @@ function updateUI() {
   } else {
     const active = activeStrokeNumber();
     if (!active) {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 完成`;
+      elements.stageStatus.textContent = `${animatedCount}/${state.strokes.length}画 · 完成後待機`;
     } else if (mode === "reverse") {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 第${active}画を終点から描画`;
+      elements.stageStatus.textContent = `${animatedCount}/${state.strokes.length}画 · 第${active}画を終点から描画`;
     } else if (mode === "random") {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · ランダム順で第${active}画を描画`;
+      elements.stageStatus.textContent = `${animatedCount}/${state.strokes.length}画 · ランダム順で第${active}画を描画`;
     } else {
-      elements.stageStatus.textContent = `${state.strokes.length}画 · 第${active}画を通常順で描画`;
+      elements.stageStatus.textContent = `${animatedCount}/${state.strokes.length}画 · 第${active}画を通常順で描画`;
     }
   }
 }
@@ -681,8 +721,7 @@ function exportImage() {
   if (!state.strokes.length) return;
   stopPlayback(false);
   const duration = Number(elements.duration.value);
-  state.playhead = duration ? Number(elements.imageTime.value) / duration : 0;
-  state.playhead = clamp(state.playhead, 0, 1);
+  const seconds = state.playhead * duration;
   render();
   updateUI();
   elements.canvas.toBlob((blob) => {
@@ -693,7 +732,7 @@ function exportImage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${safeFileCharacter()}-kanji-writer-${elements.strokeOrderMode.value}-${Number(elements.imageTime.value).toFixed(1)}s.png`;
+    anchor.download = `${safeFileCharacter()}-kanji-writer-${elements.strokeOrderMode.value}-${seconds.toFixed(1)}s.png`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     showToast(`${elements.imageTimeValue.value}のPNGを書き出しました`);
@@ -708,7 +747,6 @@ elements.characterInput.addEventListener("input", () => {
   state.loadController?.abort();
   state.sourceStrokes = [];
   state.strokes = [];
-  state.totalStrokeWeight = 0;
   state.playhead = 0;
   syncIntervalLimit();
   stopPlayback();
@@ -741,9 +779,21 @@ function resetStrokeOrder(announce = false) {
 
 elements.strokeOrderMode.addEventListener("change", () => resetStrokeOrder(false));
 elements.orderShuffleButton.addEventListener("click", () => resetStrokeOrder(true));
+elements.strokeLimit.addEventListener("change", () => {
+  state.strokeLimitPreference = elements.strokeLimit.value;
+  syncIntervalLimit();
+  saveSettings();
+  updateUI();
+  render();
+});
 elements.duration.addEventListener("input", () => {
   syncTimeLimits();
   syncIntervalLimit();
+  saveSettings();
+  updateUI();
+  render();
+});
+elements.strokeDuration.addEventListener("input", () => {
   saveSettings();
   updateUI();
   render();
@@ -787,7 +837,9 @@ elements.previewSpeed.addEventListener("change", () => {
   }
 });
 elements.imageTime.addEventListener("input", () => {
-  elements.imageTimeValue.value = `${Number(elements.imageTime.value).toFixed(1)} 秒`;
+  const duration = Number(elements.duration.value);
+  state.playhead = duration ? clamp(Number(elements.imageTime.value) / duration, 0, 1) : 0;
+  stopPlayback();
   saveSettings();
 });
 elements.outputSize.addEventListener("change", () => {

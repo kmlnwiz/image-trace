@@ -58,16 +58,28 @@
             <div><span>画の向き</span><strong id="directionSummary">始点 → 終点</strong></div>
           </div>
           <button id="orderShuffleButton" class="button button-secondary order-shuffle-button" type="button" hidden><span aria-hidden="true">↝</span>画順をシャッフル</button>
+          <div class="field-row select-row">
+            <label for="strokeLimit">何画目まで書くか</label>
+            <select id="strokeLimit">
+              <option value="all" selected>最後まで</option>
+            </select>
+          </div>
           <label class="field-row compact-field" for="duration">
             <span>全体の時間</span>
             <output id="durationValue">4.0 秒</output>
           </label>
           <input id="duration" class="range" type="range" min="0.5" max="60" step="0.1" value="4" />
+          <label class="field-row" for="strokeDuration">
+            <span>1画の描画時間</span>
+            <output id="strokeDurationValue">0.30 秒</output>
+          </label>
+          <input id="strokeDuration" class="range" type="range" min="0.01" max="10" step="0.01" value="0.30" />
           <label class="field-row" for="strokeInterval">
-            <span>画のインターバル</span>
+            <span>画の開始間隔</span>
             <output id="strokeIntervalValue">0.08 秒</output>
           </label>
-          <input id="strokeInterval" class="range" type="range" min="0" max="5" step="0.01" value="0.08" />
+          <input id="strokeInterval" class="range" type="range" min="0" max="10" step="0.01" value="0.08" />
+          <p class="field-hint">開始間隔は全体時間と独立しています。各画を0秒、設定秒、設定秒×2…に書き始め、完成後の残り時間は待機します。</p>
           <div class="field-row select-row">
             <label for="easing">筆の動き</label>
             <select id="easing">
