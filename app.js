@@ -538,78 +538,38 @@ async function loadFile(file) {
   image.src = url;
 }
 
-function supportedMimeType() {
-  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
-  return candidates.find((type) => window.MediaRecorder?.isTypeSupported(type)) || "";
-}
-
 async function exportVideo() {
   if (state.isExporting || !state.contour.length) return;
-  if (!elements.canvas.captureStream || !window.MediaRecorder) {
-    showToast("このブラウザはWebM書き出しに対応していません");
-    return;
-  }
-
-  const mimeType = supportedMimeType();
-  const stream = elements.canvas.captureStream(60);
-  const recorder = new MediaRecorder(stream, {
-    ...(mimeType ? { mimeType } : {}),
-    videoBitsPerSecond: 12_000_000,
-  });
-  const chunks = [];
-  recorder.addEventListener("dataavailable", (event) => {
-    if (event.data.size) chunks.push(event.data);
-  });
-
   state.isExporting = true;
   stopPlayback();
   elements.exportButton.disabled = true;
   elements.exportButton.lastChild.textContent = " 書き出し中";
   elements.exportProgress.hidden = false;
   elements.exportProgressBar.style.width = "0%";
-  const durationMs = Number(elements.duration.value) * 1000;
-  const frameMs = 1000 / 60;
-
-  const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
-  // Draw the first frame before recording so the stream starts from the head of the animation.
-  state.playhead = 0;
-  render(0);
-  recorder.start(250);
-  const startedAt = performance.now();
-
-  await new Promise((resolve) => {
-    function recordFrame(now) {
-      const elapsed = now - startedAt;
-      const progress = clamp(elapsed / durationMs, 0, 1);
-      state.playhead = progress;
-      render(progress);
-      updateTimelineUI();
-      elements.exportProgressBar.style.width = `${progress * 100}%`;
-      // Keep drawing past the end so the last frame carries its own display time.
-      if (elapsed < durationMs + frameMs) requestAnimationFrame(recordFrame);
-      else window.setTimeout(resolve, 100);
-    }
-    requestAnimationFrame(recordFrame);
-  });
-
-  recorder.stop();
-  await finished;
-  stream.getTracks().forEach((track) => track.stop());
-
-  const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  const baseName = state.imageName.replace(/\.[^.]+$/, "") || "outline";
-  anchor.href = url;
-  anchor.download = `${baseName}-outline.webm`;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-
-  state.isExporting = false;
-  elements.exportButton.disabled = false;
-  elements.exportButton.lastChild.textContent = " 動画を書き出す";
-  elements.exportProgress.hidden = true;
-  showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+  try {
+    const blob = await MotionToolkit.renderWebm({
+      canvas: elements.canvas,
+      totalFrames: Math.round(Number(elements.duration.value) * 60),
+      render(playhead) {
+        state.playhead = playhead;
+        render(playhead);
+      },
+      onProgress(progress) {
+        elements.exportProgressBar.style.width = `${progress * 100}%`;
+        updateTimelineUI();
+      },
+    });
+    MotionToolkit.downloadBlob(blob, `${state.imageName.replace(/\.[^.]+$/, "") || "outline"}-outline.webm`);
+    showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+  } catch (error) {
+    showToast(error?.message || "動画を書き出せませんでした");
+  } finally {
+    state.isExporting = false;
+    elements.exportButton.disabled = false;
+    elements.exportButton.lastChild.textContent = " 動画を書き出す";
+    elements.exportProgress.hidden = true;
+    updateTimelineUI();
+  }
 }
 
 function exportImage() {

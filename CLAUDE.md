@@ -37,7 +37,15 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 `#playButton` `#restartButton` `#timeline` `#currentTime` `#totalTime` `#previewSpeed` `#imageTime` `#imageTimeValue` `#imageExportButton` `#exportButton` `#exportProgress` `#exportProgressBar` `#toast` `#outputSize`
 
-ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。WebM 書き出しは `canvas.captureStream(0)` + `videoTrack.requestFrame()` の手動フレーム駆動 + `MediaRecorder`（VP9 → VP8 → webm の順にフォールバック）。プレビューと同じ `render` を requestAnimationFrame で回しつつ、playhead は経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決めて 1 枚ずつ送出するため尺が縮まずフレームも欠落しない（`requestFrame` 非対応環境は `captureStream(60)` の自動サンプリングへフォールバック）。**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
+ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。書き出しは後述の `renderWebm` に委譲する。**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
+
+### WebM 書き出し（renderWebm）
+
+`MotionToolkit.renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond })` が全ツール共通の書き出しエンジンで、`Promise<Blob>` を返す。`createPlayer` を使うツールはプレイヤー経由で、使わないツール（Outline / Kanji Writer / Random Kanji / Dial Type / Text Reel）は自分の `exportVideo` から直接呼ぶ。ダウンロードは `MotionToolkit.downloadBlob(blob, fileName)`。
+
+第一経路は **WebCodecs の `VideoEncoder`（VP9 → VP8）+ 自前の WebM マルチプレクサ**（`buildWebmBlob`、EBML を手書き）。各フレームのタイムスタンプは経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決まるので、1 枚の描画が 1/60 秒を超えても尺が伸びず、コマ落ちもしない — 遅い分だけ書き出し時間が延びるだけになる。キーフレームは 1 秒ごとで、クラスタもそこで切って Cues を張る。フレーム間の待ちは `setTimeout` ではなく `MessageChannel`（非表示タブでも 1 秒クランプを受けない）。
+
+`VideoEncoder` が無い環境では `canvas.captureStream(0)` + `requestFrame()` + `MediaRecorder` の旧経路に自動フォールバックする（さらに `requestFrame` 非対応なら `captureStream(60)` の自動サンプリング）。旧経路は `MediaRecorder` が実時間でタイムスタンプを打つため、描画が重いとカクつく点に注意。
 
 ### 設定の永続化（2層）
 

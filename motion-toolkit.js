@@ -130,6 +130,310 @@
     return left || 1;
   }
 
+  // --- WebM muxing -------------------------------------------------------
+  // MediaRecorder stamps frames with wall clock time, so a render slower than
+  // 1/60 s stretches the clip and makes playback stutter. Encoding through
+  // WebCodecs and writing the container by hand lets every frame carry the
+  // timestamp its index demands, no matter how long the drawing took.
+
+  const TIMESTAMP_SCALE_NS = 1_000_000; // one millisecond per tick
+  const textEncoder = new TextEncoder();
+
+  function concatBytes(chunks) {
+    let total = 0;
+    for (const chunk of chunks) total += chunk.length;
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return out;
+  }
+
+  function ebmlId(id) {
+    const bytes = [];
+    let remaining = id;
+    while (remaining > 0) {
+      bytes.unshift(remaining % 256);
+      remaining = Math.floor(remaining / 256);
+    }
+    return Uint8Array.from(bytes);
+  }
+
+  function ebmlSize(size) {
+    for (let length = 1; length <= 8; length += 1) {
+      if (size < Math.pow(2, 7 * length) - 1) {
+        const bytes = new Uint8Array(length);
+        let remaining = size;
+        for (let index = length - 1; index >= 0; index -= 1) {
+          bytes[index] = remaining % 256;
+          remaining = Math.floor(remaining / 256);
+        }
+        bytes[0] |= 1 << (8 - length);
+        return bytes;
+      }
+    }
+    throw new Error("EBML element is too large");
+  }
+
+  function ebmlUint(value) {
+    const bytes = [];
+    let remaining = Math.max(0, Math.round(value));
+    do {
+      bytes.unshift(remaining % 256);
+      remaining = Math.floor(remaining / 256);
+    } while (remaining > 0);
+    return Uint8Array.from(bytes);
+  }
+
+  function ebmlFloat(value) {
+    const buffer = new ArrayBuffer(8);
+    new DataView(buffer).setFloat64(0, value, false);
+    return new Uint8Array(buffer);
+  }
+
+  function ebmlElement(id, payload) {
+    const body = payload instanceof Uint8Array ? payload : concatBytes(payload);
+    return concatBytes([ebmlId(id), ebmlSize(body.length), body]);
+  }
+
+  function simpleBlock(relativeMs, isKeyFrame, data) {
+    const payload = new Uint8Array(4 + data.length);
+    payload[0] = 0x81; // track number 1, written as a single byte VINT
+    new DataView(payload.buffer).setInt16(1, relativeMs, false);
+    payload[3] = isKeyFrame ? 0x80 : 0x00;
+    payload.set(data, 4);
+    return ebmlElement(0xA3, payload);
+  }
+
+  // frames: [{ timestampMs, isKeyFrame, data }] in presentation order.
+  function buildWebmBlob({ width, height, codecId, frames, durationMs, frameDurationNs }) {
+    const clusters = [];
+    for (const frame of frames) {
+      const last = clusters[clusters.length - 1];
+      // A block timestamp is a signed 16 bit offset, so every key frame opens a
+      // fresh cluster and keeps the offsets tiny.
+      if (!last || frame.isKeyFrame || frame.timestampMs - last.timestampMs > 30_000) {
+        clusters.push({ timestampMs: frame.timestampMs, blocks: [] });
+      }
+      const cluster = clusters[clusters.length - 1];
+      cluster.blocks.push(simpleBlock(frame.timestampMs - cluster.timestampMs, frame.isKeyFrame, frame.data));
+    }
+
+    const header = ebmlElement(0x1A45DFA3, [
+      ebmlElement(0x4286, ebmlUint(1)),
+      ebmlElement(0x42F7, ebmlUint(1)),
+      ebmlElement(0x42F2, ebmlUint(4)),
+      ebmlElement(0x42F3, ebmlUint(8)),
+      ebmlElement(0x4282, textEncoder.encode("webm")),
+      ebmlElement(0x4287, ebmlUint(2)),
+      ebmlElement(0x4285, ebmlUint(2)),
+    ]);
+    const info = ebmlElement(0x1549A966, [
+      ebmlElement(0x2AD7B1, ebmlUint(TIMESTAMP_SCALE_NS)),
+      ebmlElement(0x4D80, textEncoder.encode("Motion Lab")),
+      ebmlElement(0x5741, textEncoder.encode("Motion Lab")),
+      ebmlElement(0x4489, ebmlFloat(durationMs)),
+    ]);
+    const tracks = ebmlElement(0x1654AE6B, ebmlElement(0xAE, [
+      ebmlElement(0xD7, ebmlUint(1)),
+      ebmlElement(0x73C5, ebmlUint(1)),
+      ebmlElement(0x9C, ebmlUint(0)),
+      ebmlElement(0x83, ebmlUint(1)),
+      ebmlElement(0x23E383, ebmlUint(frameDurationNs)),
+      ebmlElement(0x86, textEncoder.encode(codecId)),
+      ebmlElement(0xE0, [
+        ebmlElement(0xB0, ebmlUint(width)),
+        ebmlElement(0xBA, ebmlUint(height)),
+      ]),
+    ]));
+
+    const clusterBytes = clusters.map((cluster) => ebmlElement(0x1F43B675, [
+      ebmlElement(0xE7, ebmlUint(cluster.timestampMs)),
+      ...cluster.blocks,
+    ]));
+    // Cue positions are relative to the first byte inside the segment.
+    let position = info.length + tracks.length;
+    const cuePoints = clusters.map((cluster, index) => {
+      const point = ebmlElement(0xBB, [
+        ebmlElement(0xB3, ebmlUint(cluster.timestampMs)),
+        ebmlElement(0xB7, [
+          ebmlElement(0xF7, ebmlUint(1)),
+          ebmlElement(0xF1, ebmlUint(position)),
+        ]),
+      ]);
+      position += clusterBytes[index].length;
+      return point;
+    });
+    const cues = ebmlElement(0x1C53BB6B, cuePoints);
+    const segment = ebmlElement(0x18538067, [info, tracks, ...clusterBytes, cues]);
+    return new Blob([header, segment], { type: "video/webm" });
+  }
+
+  // setTimeout is clamped to once per second in a hidden tab, which would stall an
+  // export the moment the user switches away. A MessageChannel is not throttled.
+  const yieldChannel = new MessageChannel();
+  const yieldQueue = [];
+  yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
+  yieldChannel.port1.start();
+
+  function nextTask() {
+    return new Promise((resolve) => {
+      yieldQueue.push(resolve);
+      yieldChannel.port2.postMessage(0);
+    });
+  }
+
+  async function pickVideoCodec(width, height, bitrate) {
+    if (typeof window.VideoEncoder !== "function" || typeof window.VideoFrame !== "function") return null;
+    // Levels are listed high to low: the first one the browser accepts wins.
+    const candidates = [
+      { codec: "vp09.00.41.08", codecId: "V_VP9" },
+      { codec: "vp09.00.10.08", codecId: "V_VP9" },
+      { codec: "vp8", codecId: "V_VP8" },
+    ];
+    for (const candidate of candidates) {
+      try {
+        const support = await VideoEncoder.isConfigSupported({
+          codec: candidate.codec,
+          width,
+          height,
+          bitrate,
+          framerate: EXPORT_FPS,
+        });
+        if (support?.supported) return candidate;
+      } catch {
+        // Try the next codec; an unsupported config throws in some builds.
+      }
+    }
+    return null;
+  }
+
+  // Renders `totalFrames` frames and returns a WebM blob. Every frame is stamped
+  // from its index rather than from the clock, so a render slower than 1/60 s only
+  // makes the export take longer — it never drops a frame or stretches the clip.
+  // `render(playhead)` receives a normalised 0..1 position and must draw synchronously.
+  async function renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond }) {
+    const frames = Math.max(2, Math.round(totalFrames));
+    const bitrate = videoBitsPerSecond || 12_000_000;
+    const codec = await pickVideoCodec(canvas.width, canvas.height, bitrate);
+    if (codec) {
+      try {
+        return await encodeWithWebCodecs({ canvas, totalFrames: frames, render, onProgress, bitrate, codec });
+      } catch (error) {
+        console.warn("WebCodecsでの書き出しに失敗したため従来の方式に切り替えます", error);
+      }
+    }
+    return recordWithMediaRecorder({ canvas, totalFrames: frames, render, onProgress, bitrate });
+  }
+
+  async function encodeWithWebCodecs({ canvas, totalFrames, render, onProgress, bitrate, codec }) {
+    const width = canvas.width;
+    const height = canvas.height;
+    const encoded = [];
+    let encoderError = null;
+    const encoder = new VideoEncoder({
+      output(chunk) {
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        encoded.push({
+          timestampMs: Math.round(chunk.timestamp / 1000),
+          isKeyFrame: chunk.type === "key",
+          data,
+        });
+      },
+      error(error) {
+        encoderError = error;
+      },
+    });
+    encoder.configure({ codec: codec.codec, width, height, bitrate, framerate: EXPORT_FPS, latencyMode: "quality" });
+    try {
+      for (let frame = 0; frame < totalFrames; frame += 1) {
+        if (encoderError) throw encoderError;
+        render(frame / (totalFrames - 1));
+        const videoFrame = new VideoFrame(canvas, {
+          timestamp: Math.round((frame * 1_000_000) / EXPORT_FPS),
+          duration: Math.round(1_000_000 / EXPORT_FPS),
+        });
+        // A key frame every second keeps clusters small and seeking responsive.
+        encoder.encode(videoFrame, { keyFrame: frame % EXPORT_FPS === 0 });
+        videoFrame.close();
+        if (frame % 6 === 5 || frame === totalFrames - 1) {
+          onProgress?.((frame + 1) / totalFrames);
+          await nextTask();
+        }
+        // Let the encoder drain so a long clip does not pile up in memory.
+        while (encoder.encodeQueueSize > 16 && !encoderError) await nextTask();
+      }
+      await encoder.flush();
+      if (encoderError) throw encoderError;
+    } finally {
+      if (encoder.state !== "closed") encoder.close();
+    }
+    encoded.sort((left, right) => left.timestampMs - right.timestampMs);
+    return buildWebmBlob({
+      width,
+      height,
+      codecId: codec.codecId,
+      frames: encoded,
+      durationMs: (totalFrames * 1000) / EXPORT_FPS,
+      frameDurationNs: Math.round(1_000_000_000 / EXPORT_FPS),
+    });
+  }
+
+  async function recordWithMediaRecorder({ canvas, totalFrames, render, onProgress, bitrate }) {
+    if (!canvas.captureStream || !window.MediaRecorder) {
+      throw new Error("このブラウザはWebM書き出しに対応していません");
+    }
+    // A 0 fps stream only emits frames we push, so every rendered frame lands in the file.
+    let stream = canvas.captureStream(0);
+    let videoTrack = stream.getVideoTracks()[0];
+    const manualFrames = typeof videoTrack?.requestFrame === "function";
+    if (!manualFrames) {
+      stream.getTracks().forEach((track) => track.stop());
+      stream = canvas.captureStream(EXPORT_FPS);
+      videoTrack = stream.getVideoTracks()[0];
+    }
+    const pushFrame = manualFrames ? () => videoTrack.requestFrame() : () => {};
+    const mimeType = supportedMimeType();
+    const recorder = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: bitrate,
+    });
+    const chunks = [];
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size) chunks.push(event.data);
+    });
+    const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+    // Draw the first frame before recording so the stream starts from the head of the animation.
+    render(0);
+    recorder.start(250);
+    await new Promise((resolve) => {
+      let startedAt = 0;
+      let frame = 0;
+      function recordFrame(now) {
+        if (!startedAt) startedAt = now;
+        // Half a frame of slack keeps a jittery rAF from skipping a slot and halving the frame rate.
+        if (now >= startedAt + frame * FRAME_MS - FRAME_MS / 2) {
+          render(frame / (totalFrames - 1));
+          pushFrame();
+          onProgress?.((frame + 1) / totalFrames);
+          frame += 1;
+        }
+        if (frame < totalFrames) requestAnimationFrame(recordFrame);
+        // Hold the last frame for its own display time before closing the file.
+        else window.setTimeout(resolve, FRAME_MS);
+      }
+      requestAnimationFrame(recordFrame);
+    });
+    pushFrame();
+    recorder.stop();
+    await finished;
+    stream.getTracks().forEach((track) => track.stop());
+    return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+  }
+
   function createPlayer(options) {
     const canvas = options.canvas;
     const elements = {
@@ -259,75 +563,62 @@
       update();
     }
 
-    async function exportVideo() {
-      if (!available() || state.isExporting) return;
-      if (!canvas.captureStream || !window.MediaRecorder) {
-        showToast("このブラウザはWebM書き出しに対応していません");
-        return;
-      }
-      // A 0 fps stream only emits frames we push, so every rendered frame lands in the file.
-      let stream = canvas.captureStream(0);
-      let videoTrack = stream.getVideoTracks()[0];
-      const manualFrames = typeof videoTrack?.requestFrame === "function";
-      if (!manualFrames) {
-        stream.getTracks().forEach((track) => track.stop());
-        stream = canvas.captureStream(EXPORT_FPS);
-        videoTrack = stream.getVideoTracks()[0];
-      }
-      const pushFrame = manualFrames ? () => videoTrack.requestFrame() : () => {};
-      const mimeType = supportedMimeType();
-      const recorder = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        videoBitsPerSecond: options.videoBitsPerSecond || 12_000_000,
-      });
-      const chunks = [];
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data.size) chunks.push(event.data);
-      });
+    function setExportProgress(progress) {
+      if (elements.progressBar) elements.progressBar.style.width = `${clamp(progress, 0, 1) * 100}%`;
+    }
+
+    function beginExport() {
       state.isExporting = true;
       stop(false);
       update();
       if (elements.videoExport?.lastChild) elements.videoExport.lastChild.textContent = " 書き出し中";
       if (elements.progress) elements.progress.hidden = false;
-      if (elements.progressBar) elements.progressBar.style.width = "0%";
-      // Frames are counted, not sampled from the clock, so the clip always holds the requested length.
-      const totalFrames = Math.max(2, Math.round(duration() * EXPORT_FPS));
-      const finished = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
-      // Draw the first frame before recording so the stream starts from the head of the animation.
-      state.playhead = 0;
-      render();
-      recorder.start(250);
-      await new Promise((resolve) => {
-        let startedAt = 0;
-        let frame = 0;
-        function recordFrame(now) {
-          if (!startedAt) startedAt = now;
-          // Half a frame of slack keeps a jittery rAF from skipping a slot and halving the frame rate.
-          if (now >= startedAt + frame * FRAME_MS - FRAME_MS / 2) {
-            state.playhead = frame / (totalFrames - 1);
-            render();
-            update();
-            pushFrame();
-            if (elements.progressBar) elements.progressBar.style.width = `${state.playhead * 100}%`;
-            frame += 1;
-          }
-          if (frame < totalFrames) requestAnimationFrame(recordFrame);
-          // Hold the last frame for its own display time before closing the file.
-          else window.setTimeout(resolve, FRAME_MS);
-        }
-        requestAnimationFrame(recordFrame);
-      });
-      pushFrame();
-      recorder.stop();
-      await finished;
-      stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-      downloadBlob(blob, `${safeFileName(options.getFileBase?.(), "motion")}.webm`);
+      setExportProgress(0);
+    }
+
+    function endExport() {
       state.isExporting = false;
       if (elements.videoExport?.lastChild) elements.videoExport.lastChild.textContent = " 動画を書き出す";
       if (elements.progress) elements.progress.hidden = true;
       update();
-      showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+    }
+
+    function frameCount() {
+      // Frames are counted, not sampled from the clock, so the clip always holds the requested length.
+      return Math.max(2, Math.round(duration() * EXPORT_FPS));
+    }
+
+    function renderFrameAt(frame, totalFrames) {
+      state.playhead = frame / (totalFrames - 1);
+      render();
+    }
+
+    async function exportVideo() {
+      if (!available() || state.isExporting) return;
+      // Claim the export before the first await so a double click cannot start two runs.
+      beginExport();
+      const totalFrames = frameCount();
+      try {
+        const blob = await renderWebm({
+          canvas,
+          totalFrames,
+          videoBitsPerSecond: options.videoBitsPerSecond,
+          render(playhead) {
+            state.playhead = playhead;
+            render();
+          },
+          onProgress(progress) {
+            setExportProgress(progress);
+            update();
+          },
+        });
+        downloadBlob(blob, `${safeFileName(options.getFileBase?.(), "motion")}.webm`);
+        endExport();
+        showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+      } catch (error) {
+        endExport();
+        showToast(error?.message || "動画を書き出せませんでした");
+      }
     }
 
     function exportImage() {
@@ -388,6 +679,8 @@
     containRect,
     outputDimensions,
     resizeOutputCanvas,
+    downloadBlob,
+    renderWebm,
     createPlayer,
   };
 })();

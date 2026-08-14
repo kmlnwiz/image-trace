@@ -133,4 +133,6 @@
 
 漢字系ツールはHanzi Writer Japanese Data（AnimCJK / Arphic Public License・LGPL）を使用し、取得後の画データをブラウザ内へキャッシュします。
 
-WebMの書き出しには、`HTMLCanvasElement.captureStream()`と`MediaRecorder`に対応したブラウザが必要です。
+WebMの書き出しはWebCodecs（`VideoEncoder`）を使います。各フレームには経過時間ではなくフレーム番号どおりの時刻が刻まれるため、描画が重いパソコンでも出力がカクついたり尺がずれたりしません。
+
+WebCodecsに対応していないブラウザでは、`HTMLCanvasElement.captureStream()`と`MediaRecorder`による従来方式へ自動的に切り替わります。この場合は描画が重いとコマ落ちすることがあります。
