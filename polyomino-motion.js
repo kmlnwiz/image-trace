@@ -453,7 +453,7 @@ function sceneLayout() {
   const side = packing.orientation === "side";
   const totalWidth = side ? columns + packing.majorGap + packing.width : Math.max(columns, packing.width);
   const totalHeight = side ? Math.max(rows, packing.height) : rows + packing.majorGap + packing.height;
-  const cellSize = Math.min(elements.canvas.width * 0.88 / totalWidth, elements.canvas.height * 0.8 / totalHeight);
+  const cellSize = Math.min(elements.canvas.width * 0.965 / totalWidth, elements.canvas.height * 0.945 / totalHeight);
   const originX = (elements.canvas.width - totalWidth * cellSize) / 2;
   const originY = (elements.canvas.height - totalHeight * cellSize) / 2;
   const boardX = side ? originX : originX + (totalWidth - columns) * cellSize / 2;

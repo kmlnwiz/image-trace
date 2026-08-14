@@ -721,9 +721,9 @@ function render(playhead = state.playhead) {
     return;
   }
 
-  const sidePadding = count <= 4 ? 100 : 76;
+  const sidePadding = count <= 4 ? 48 : 38;
   const desiredGap = count <= 6 ? 24 : 14;
-  const maxWidth = count <= 4 ? 260 : count <= 7 ? 205 : 140;
+  const maxWidth = count <= 4 ? 300 : count <= 7 ? 238 : 164;
   const reelWidth = clamp(
     (outputWidth - sidePadding * 2 - desiredGap * (count - 1)) / count,
     72,
@@ -734,7 +734,7 @@ function render(playhead = state.playhead) {
     : 0;
   const totalWidth = reelWidth * count + gap * (count - 1);
   const startX = (outputWidth - totalWidth) / 2;
-  const rowHeight = clamp(reelWidth * 0.82, 92, 152);
+  const rowHeight = clamp(reelWidth * 0.82, 92, 186);
   const reelHeight = rowHeight * 3;
   const startY = (outputHeight - reelHeight) / 2;
   const time = playhead * Number(elements.duration.value);
