@@ -409,6 +409,7 @@ body.radical-highlight { --tool-accent: #c24e39; --tool-accent-soft: #fae8e4; }
 body.slice-motion { --tool-accent: #147a9b; --tool-accent-soft: #e0f1f6; }
 body.flip-panels { --tool-accent: #ca6a21; --tool-accent-soft: #faebdf; }
 body.slide-puzzle { --tool-accent: #a2551f; --tool-accent-soft: #f7ebe0; }
+body.pencil-hatch { --tool-accent: #b8437e; --tool-accent-soft: #fae4ef; }
 
 .fixed-color-control {
   display: inline-flex;

@@ -10,6 +10,7 @@
     { file: "color-focus.html", name: "Color Focus", summary: "選んだ色系統だけを着色", group: "画像" },
     { file: "slice-motion.html", name: "Slice Motion", summary: "画像を分割して組み上げる", group: "画像" },
     { file: "slide-puzzle.html", name: "Slide Puzzle", summary: "15パズルのように元へ戻す", group: "画像" },
+    { file: "pencil-hatch.html", name: "Pencil Hatch", summary: "色鉛筆で荒く塗り上げる", group: "画像" },
     { file: "text-dial.html", name: "Dial Type", summary: "文字ダイヤルアニメーション", group: "文字" },
     { file: "text-reel.html", name: "Text Reel", summary: "スロットマシン風文字リール", group: "文字" },
     { file: "flip-panels.html", name: "Flip Panels", summary: "両面文字パネルを回転して確定", group: "文字" },

@@ -165,25 +165,26 @@ a {
 .color-card { order: 3; }
 .slice-card { order: 4; }
 .puzzle-card { order: 5; }
-.type-category-heading { order: 6; }
-.dial-card { order: 7; }
-.reel-card { order: 8; }
-.flip-card { order: 9; }
-.conveyor-card { order: 10; }
-.reveal-card { order: 11; }
-.polyomino-card { order: 12; }
-.memory-card { order: 13; }
-.kanji-category-heading { order: 14; }
-.kanji-card { order: 15; }
-.random-card { order: 16; }
-.assemble-card { order: 17; }
-.radical-card { order: 18; }
-.background-category-heading { order: 19; }
-.gridpulse-card { order: 20; }
-.colorgrid-card { order: 21; }
-.gradient-card { order: 22; }
-.stripe-card { order: 23; }
-.plasma-card { order: 24; }
+.hatch-card { order: 6; }
+.type-category-heading { order: 7; }
+.dial-card { order: 8; }
+.reel-card { order: 9; }
+.flip-card { order: 10; }
+.conveyor-card { order: 11; }
+.reveal-card { order: 12; }
+.polyomino-card { order: 13; }
+.memory-card { order: 14; }
+.kanji-category-heading { order: 15; }
+.kanji-card { order: 16; }
+.random-card { order: 17; }
+.assemble-card { order: 18; }
+.radical-card { order: 19; }
+.background-category-heading { order: 20; }
+.gridpulse-card { order: 21; }
+.colorgrid-card { order: 22; }
+.gradient-card { order: 23; }
+.stripe-card { order: 24; }
+.plasma-card { order: 25; }
 
 .tool-card {
   min-width: 0;
@@ -715,6 +716,29 @@ a {
 }
 
 .puzzle-line i { width: 62%; background: #f0b14e; }
+
+.hatch-home-stage {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 7px;
+  padding: 16px;
+  background: #fbf7ef;
+}
+
+.hatch-home-stage i {
+  display: block;
+  border-radius: 2px;
+}
+
+.hatch-home-stage .h1 { background: repeating-linear-gradient(45deg, #b8437e 0 3px, transparent 3px 9px); }
+.hatch-home-stage .h2 { background: repeating-linear-gradient(-45deg, #2f6f9e 0 3px, transparent 3px 8px), repeating-linear-gradient(45deg, #7a5bb8 0 2px, transparent 2px 12px); }
+.hatch-home-stage .h3 { background: repeating-linear-gradient(45deg, #3c8f63 0 4px, transparent 4px 7px); }
+.hatch-home-stage .h4 { background: repeating-linear-gradient(90deg, #d6673f 0 3px, transparent 3px 11px); }
+.hatch-home-stage .h5 { background: repeating-linear-gradient(-45deg, #c9a227 0 3px, transparent 3px 6px), repeating-linear-gradient(45deg, #d6673f 0 2px, transparent 2px 10px); }
+.hatch-home-stage .h6 { background: repeating-linear-gradient(45deg, #2f6f9e 0 3px, transparent 3px 13px); }
+
+.hatch-line i { width: 48%; background: #b8437e; }
 
 .memory-home-stage {
   display: grid;

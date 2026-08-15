@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#f4f6f7" /><title>Pencil Hatch</title><link rel="stylesheet" href="studio-tools.css" /><link rel="stylesheet" href="tool-ui.css" /></head>
+  <body class="tool-page pencil-hatch" data-tool-key="pencil-hatch">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">筆</span><div><h1>Pencil Hatch</h1><p>色鉛筆で荒く塗り上げる</p></div></a>
+      <div class="header-actions"><button id="sampleButton" class="button button-secondary" type="button">サンプル</button><label class="button button-primary" for="fileInput"><span aria-hidden="true">↑</span>画像を開く</label><input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden /></div>
+    </header>
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="画像と塗りの設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>画像</h2><span id="imageDimensions" class="meta-value">—</span></div>
+          <button id="fileSummary" class="file-summary image-picker" type="button" aria-label="画像を選択、またはここへドロップ"><span class="file-thumbnail" aria-hidden="true"><span>IMG</span></span><span class="file-copy"><strong id="fileName">サンプル</strong><span id="fileMeta">内蔵サンプル</span></span><span class="file-arrow" aria-hidden="true">＋</span></button>
+          <div class="field-row select-row"><label for="imageFit">配置</label><select id="imageFit"><option value="cover" selected>全面に合わせる</option><option value="contain">全体を入れる</option></select></div>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>塗り</h2><output id="strokeCount" class="meta-value">—</output></div>
+          <label class="field-row" for="brushSize"><span>筆の最大サイズ</span><output id="brushSizeValue">14%</output></label><input id="brushSize" class="range" type="range" min="4" max="30" step="1" value="14" />
+          <label class="field-row" for="layers"><span>重ね回数</span><output id="layersValue">4 層</output></label><input id="layers" class="range" type="range" min="1" max="5" step="1" value="4" />
+          <label class="field-row" for="roughness"><span>荒さ</span><output id="roughnessValue">45%</output></label><input id="roughness" class="range" type="range" min="0" max="100" step="1" value="45" />
+          <label class="field-row" for="pitch"><span>折り返し間隔</span><output id="pitchValue">7 px</output></label><input id="pitch" class="range" type="range" min="3" max="28" step="1" value="7" />
+          <label class="field-row" for="lineWidth"><span>線の太さ</span><output id="lineWidthValue">2 px</output></label><input id="lineWidth" class="range" type="range" min="1" max="12" step="1" value="2" />
+          <label class="field-row" for="pressure"><span>筆圧</span><output id="pressureValue">50%</output></label><input id="pressure" class="range" type="range" min="5" max="100" step="1" value="50" />
+          <label class="field-row" for="jitter"><span>手ブレ</span><output id="jitterValue">50%</output></label><input id="jitter" class="range" type="range" min="0" max="150" step="1" value="50" />
+          <div class="field-row select-row"><label for="blendMode">重ね方</label><select id="blendMode"><option value="multiply" selected>重ねて濃く</option><option value="source-over">上書き</option></select></div>
+          <div class="field-row select-row"><label for="angleMode">筆の向き</label><select id="angleMode"><option value="cross" selected>層ごとに交差</option><option value="gradient">輪郭に沿う</option><option value="fixed">一定</option></select></div>
+          <label class="field-row" for="baseAngle"><span>基準の角度</span><output id="baseAngleValue">45°</output></label><input id="baseAngle" class="range" type="range" min="0" max="180" step="5" value="45" />
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>紙と仕上げ</h2></div>
+          <div class="field-row color-row"><label for="paperColor">紙の色</label><span class="color-control"><input id="paperColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
+          <label class="field-row" for="overlay"><span>元画像の濃度</span><output id="overlayValue">0%</output></label><input id="overlay" class="range" type="range" min="0" max="100" step="1" value="0" />
+        </section>
+      </aside>
+      <section class="stage-panel tool-stage" aria-label="色鉛筆で塗り上げるアニメーションのプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">画像を読み込み中</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="画像を色鉛筆のジグザグで塗り上げるアニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:08.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section"><div class="section-heading"><h2>動き</h2></div>
+          <div class="field-row select-row"><label for="order">塗る順番</label><select id="order"><option value="serpentine" selected>左上から順に</option><option value="top">上から</option><option value="random">ランダム</option><option value="dark">暗い順</option><option value="light">明るい順</option><option value="error">粗い順</option></select></div>
+          <div class="field-row select-row"><label for="allocation">時間の配り方</label><select id="allocation"><option value="even" selected>層ごとに均等</option><option value="count">本数どおり</option></select></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">8.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="8" />
+          <label class="field-row" for="simultaneous"><span>同時の本数</span><output id="simultaneousValue">10本</output></label><input id="simultaneous" class="range" type="range" min="1" max="300" step="1" value="10" />
+          <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="linear" selected>一定</option><option value="easeInOut">なめらか</option><option value="easeOut">減速</option><option value="easeIn">加速</option></select></div>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>手ブレと順番を再抽選</button>
+        </section>
+        <section class="control-section export-section"><div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div><dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl><label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">4.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="8" step="0.1" value="4" /><button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div></section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="pencil-hatch.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>
