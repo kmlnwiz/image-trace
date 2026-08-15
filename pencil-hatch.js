@@ -303,6 +303,9 @@ function rebuildStrokes() {
           width: lineWidth * (0.78 + random() * 0.5),
           alpha: MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1),
           layer,
+          // Row by row, reversing every other row, so consecutive strokes are
+          // neighbours and the hand walks the page instead of hopping about.
+          scan: row * columns + (row % 2 ? columns - 1 - column : column),
           center: centerY / height,
           luminance: targetRed * 0.299 + targetGreen * 0.587 + targetBlue * 0.114,
           error,
@@ -329,6 +332,7 @@ function rebuildStrokes() {
 
 function orderKey(stroke) {
   const mode = elements.order.value;
+  if (mode === "serpentine") return stroke.scan;
   if (mode === "top") return stroke.center;
   if (mode === "dark") return stroke.luminance;
   if (mode === "light") return -stroke.luminance;

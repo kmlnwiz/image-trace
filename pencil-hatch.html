@@ -39,10 +39,10 @@
       </section>
       <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
         <section class="control-section"><div class="section-heading"><h2>動き</h2></div>
-          <div class="field-row select-row"><label for="order">塗る順番</label><select id="order"><option value="random" selected>ランダム</option><option value="top">上から</option><option value="dark">暗い順</option><option value="light">明るい順</option><option value="error">粗い順</option></select></div>
+          <div class="field-row select-row"><label for="order">塗る順番</label><select id="order"><option value="serpentine" selected>左上から順に</option><option value="top">上から</option><option value="random">ランダム</option><option value="dark">暗い順</option><option value="light">明るい順</option><option value="error">粗い順</option></select></div>
           <div class="field-row select-row"><label for="allocation">時間の配り方</label><select id="allocation"><option value="even" selected>層ごとに均等</option><option value="count">本数どおり</option></select></div>
           <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">8.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="8" />
-          <label class="field-row" for="simultaneous"><span>同時の本数</span><output id="simultaneousValue">60本</output></label><input id="simultaneous" class="range" type="range" min="1" max="300" step="1" value="60" />
+          <label class="field-row" for="simultaneous"><span>同時の本数</span><output id="simultaneousValue">10本</output></label><input id="simultaneous" class="range" type="range" min="1" max="300" step="1" value="10" />
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="linear" selected>一定</option><option value="easeInOut">なめらか</option><option value="easeOut">減速</option><option value="easeIn">加速</option></select></div>
           <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>手ブレと順番を再抽選</button>
         </section>
