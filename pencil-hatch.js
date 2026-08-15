@@ -13,6 +13,10 @@ const MAX_PASSES = 48;
 const STROKE_OVERSHOOT = 1.2;
 const ANGLE_JITTER = 0.2;
 const CENTER_JITTER = 0.12;
+// A pass is sampled about this often so the wobble along it has room to bend.
+const SEGMENT_LENGTH = 13;
+const MIN_SEGMENTS = 3;
+const MAX_SEGMENTS = 11;
 // Layer angles walk this table so each pass crosses the ones below it.
 const CROSS_ANGLES = [0, 90, 45, 135, 22.5];
 
@@ -130,15 +134,31 @@ function buildZigzag(centerX, centerY, halfWidth, halfHeight, angle, pitch, jitt
   // Without a phase of its own every cell starts its passes at the same place,
   // and the hatching of neighbouring cells lines up into long straight runs.
   const phase = (random() - 0.5) * step;
+  // A hand wanders slowly. Noise on every point reads as static, so the drift
+  // along a pass is two slow waves given their own rate and phase per stroke,
+  // and only a trace of per point noise rides on top.
+  const slowRate = 0.8 + random() * 1.5;
+  const fastRate = 2.4 + random() * 2.8;
+  const slowPhase = random() * Math.PI * 2;
+  const fastPhase = random() * Math.PI * 2;
+  const drift = jitter * 1.7;
+  const segments = MotionToolkit.clamp(Math.round(extentAlong * 2 / SEGMENT_LENGTH), MIN_SEGMENTS, MAX_SEGMENTS);
   const points = [];
+
   for (let pass = 0; pass <= passes; pass += 1) {
-    const across = -extentAcross + step * pass + phase;
     const forward = pass % 2 === 0;
-    const from = forward ? -extentAlong : extentAlong;
-    const to = forward ? extentAlong : -extentAlong;
-    for (let part = 0; part <= 2; part += 1) {
-      const along = from + (to - from) * (part / 2) + (random() - 0.5) * jitter;
-      const offset = across + (random() - 0.5) * jitter;
+    // Ragged ends and uneven spacing: no two passes reach the same place or sit
+    // exactly one pitch from the last.
+    const reach = extentAlong * (0.84 + random() * 0.28);
+    const from = forward ? -reach : reach;
+    const to = forward ? reach : -reach;
+    const across = -extentAcross + step * pass + phase + (random() - 0.5) * step * 0.55;
+    for (let part = 0; part <= segments; part += 1) {
+      const travel = part / segments;
+      const wave = Math.sin(travel * slowRate * Math.PI * 2 + slowPhase) * 0.64
+        + Math.sin(travel * fastRate * Math.PI * 2 + fastPhase) * 0.36;
+      const along = from + (to - from) * travel + (random() - 0.5) * jitter * 0.5;
+      const offset = across + wave * drift + (random() - 0.5) * jitter * 0.3;
       points.push(centerX + along * cos - offset * sin, centerY + along * sin + offset * cos);
     }
   }
@@ -201,7 +221,8 @@ function rebuildStrokes() {
   // A scribble leaves gaps between its passes, so the simulated coverage is the
   // share of the cell the line actually touches.
   const coverage = MotionToolkit.clamp(lineWidth / Math.max(1, pitch), 0.15, 1);
-  const strength = MotionToolkit.clamp(Number(elements.pressure.value) / 100 * coverage, 0.02, 1);
+  const pressure = Number(elements.pressure.value) / 100;
+  const strength = MotionToolkit.clamp(pressure * coverage, 0.02, 1);
   const scaleX = analysisWidth / width;
   const scaleY = analysisHeight / height;
 
@@ -269,6 +290,10 @@ function rebuildStrokes() {
           points: normalized,
           progress: measureStroke(points),
           color,
+          // No two pencils are sharpened the same and no two strokes are pressed
+          // the same, so width and pressure carry their own scatter.
+          width: lineWidth * (0.78 + random() * 0.5),
+          alpha: MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1),
           layer,
           center: centerY / height,
           luminance: targetRed * 0.299 + targetGreen * 0.587 + targetBlue * 0.114,
@@ -332,6 +357,8 @@ function paintStroke(target, stroke, fraction, width, height) {
   const progress = stroke.progress;
   const count = progress.length;
   target.strokeStyle = `rgb(${stroke.color[0]}, ${stroke.color[1]}, ${stroke.color[2]})`;
+  target.lineWidth = stroke.width;
+  target.globalAlpha = stroke.alpha;
   target.beginPath();
   target.moveTo(points[0] * width, points[1] * height);
   let index = 1;
@@ -351,10 +378,10 @@ function paintStroke(target, stroke, fraction, width, height) {
   target.stroke();
 }
 
+// Width and opacity are set per stroke inside paintStroke; only what every
+// stroke shares is set here.
 function applyPencil(target) {
   target.globalCompositeOperation = elements.blendMode.value === "multiply" ? "multiply" : "source-over";
-  target.globalAlpha = Number(elements.pressure.value) / 100;
-  target.lineWidth = Number(elements.lineWidth.value);
   target.lineCap = "round";
   target.lineJoin = "round";
 }
