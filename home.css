@@ -158,6 +158,8 @@ a {
   font-size: 10px;
 }
 
+/* Every card needs a rule here: an unplaced card keeps the default order of 0
+   and jumps ahead of the first category heading. */
 .image-category-heading { order: 1; }
 .outline-card { order: 2; }
 .color-card { order: 3; }
@@ -177,6 +179,12 @@ a {
 .random-card { order: 17; }
 .assemble-card { order: 18; }
 .radical-card { order: 19; }
+.background-category-heading { order: 20; }
+.gridpulse-card { order: 21; }
+.colorgrid-card { order: 22; }
+.gradient-card { order: 23; }
+.stripe-card { order: 24; }
+.plasma-card { order: 25; }
 
 .tool-card {
   min-width: 0;
@@ -976,6 +984,83 @@ a {
   border-radius: 50%;
   font-size: 18px;
 }
+
+.gridpulse-home-stage {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  place-items: center;
+  gap: 4px;
+  padding: 14px;
+  background: #0f2a35;
+}
+
+.gridpulse-home-stage i {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #1a9aae;
+  transform: scale(var(--pulse-scale, 0.5));
+}
+
+.gridpulse-home-stage i:nth-child(3n) { --pulse-scale: 0.95; background: #7fd3dd; }
+.gridpulse-home-stage i:nth-child(5n) { --pulse-scale: 0.28; }
+.gridpulse-home-stage i:nth-child(7n) { --pulse-scale: 0.72; }
+.gridpulse-line i { width: 58%; background: #1f7a8c; }
+
+.colorgrid-home-stage {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  background: #16354a;
+}
+
+.colorgrid-home-stage i {
+  display: block;
+  background: #16354a;
+}
+
+.colorgrid-home-stage i:nth-child(4n + 1) { background: #1a9aae; }
+.colorgrid-home-stage i:nth-child(4n + 2) { background: #f0b14e; }
+.colorgrid-home-stage i:nth-child(4n + 3) { background: #e0041d; }
+.colorgrid-line i { width: 66%; background: #a97a1f; }
+
+.gradient-home-stage {
+  position: absolute;
+  background: #f6f2ec;
+}
+
+.gradient-home-stage i {
+  position: absolute;
+  width: 74%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(16px);
+  opacity: 0.85;
+}
+
+.gradient-home-stage i:nth-child(1) { top: -22%; left: -12%; background: #f5c77e; }
+.gradient-home-stage i:nth-child(2) { top: 18%; right: -18%; background: #e8657f; }
+.gradient-home-stage i:nth-child(3) { bottom: -26%; left: 22%; background: #6d4bb8; }
+.gradient-line i { width: 44%; background: #7a4bbd; }
+
+.stripe-home-stage {
+  background: repeating-linear-gradient(58deg, #16354a 0 12px, #f6f2ec 12px 24px, #f0b14e 24px 36px, #f6f2ec 36px 48px);
+}
+
+.stripe-line i { width: 71%; background: #b8532a; }
+
+.plasma-home-stage {
+  background:
+    radial-gradient(circle at 22% 26%, #f3b64f 0 12%, transparent 46%),
+    radial-gradient(circle at 74% 34%, #e0041d 0 10%, transparent 44%),
+    radial-gradient(circle at 58% 82%, #1a9aae 0 14%, transparent 50%),
+    radial-gradient(circle at 12% 88%, #f2ede3 0 8%, transparent 40%),
+    linear-gradient(140deg, #12384c, #1a9aae);
+}
+
+.plasma-line i { width: 53%; background: #2f6f4f; }
 
 .home-footer {
   border-top: 1px solid #d9dfe2;

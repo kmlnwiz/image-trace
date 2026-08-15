@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#f4f6f7" /><title>Stripe Drift</title><link rel="stylesheet" href="background-tools.css" /><link rel="stylesheet" href="tool-ui.css" /></head>
+  <body class="tool-page stripe-drift" data-tool-key="stripe-drift">
+    <header class="app-header tool-header">
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">縞</span><div><h1>Stripe Drift</h1><p>縞と同心円が流れる背景</p></div></a>
+      <div class="header-actions"></div>
+    </header>
+    <main class="workspace tool-workspace tool-shell">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="模様と色の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>模様</h2><output id="patternSummary" class="meta-value">14本</output></div>
+          <div class="segmented" role="group" aria-label="模様の種類"><button type="button" data-pattern="stripe" class="is-active">ストライプ</button><button type="button" data-pattern="rings">同心円</button><button type="button" data-pattern="wave">波線</button></div>
+          <label class="field-row" for="count"><span>本数</span><output id="countValue">14</output></label><input id="count" class="range" type="range" min="1" max="80" step="1" value="14" />
+          <label class="field-row" for="duty"><span>太さの比率</span><output id="dutyValue">50%</output></label><input id="duty" class="range" type="range" min="2" max="98" step="1" value="50" />
+          <div id="angleControl"><label class="field-row" for="angle"><span>角度</span><output id="angleValue">0°</output></label><input id="angle" class="range" type="range" min="0" max="360" step="1" value="0" /></div>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>ゆらぎ</h2></div>
+          <label class="field-row" for="amplitude"><span>振幅</span><output id="amplitudeValue">0 px</output></label><input id="amplitude" class="range" type="range" min="0" max="300" step="1" value="0" />
+          <label class="field-row" for="waveCount"><span>うねりの数</span><output id="waveCountValue">3</output></label><input id="waveCount" class="range" type="range" min="1" max="12" step="1" value="3" />
+          <div id="lineShiftControl" hidden><label class="field-row" for="lineShift"><span>行ごとのずれ</span><output id="lineShiftValue">0%</output></label><input id="lineShift" class="range" type="range" min="0" max="100" step="1" value="0" /></div>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>色</h2></div>
+          <div class="field-row select-row"><label for="colorCount">色数</label><select id="colorCount"><option value="2" selected>2色</option><option value="3">3色</option><option value="4">4色</option></select></div>
+          <div class="palette-grid">
+            <span class="color-control"><input id="color1" type="color" value="#16354A" /><output>#16354A</output></span>
+            <span class="color-control"><input id="color2" type="color" value="#F0B14E" /><output>#F0B14E</output></span>
+            <span class="color-control"><input id="color3" type="color" value="#E0041D" /><output>#E0041D</output></span>
+            <span class="color-control"><input id="color4" type="color" value="#1A9AAE" /><output>#1A9AAE</output></span>
+          </div>
+          <div class="field-row select-row"><label for="arrangement">色の並び</label><select id="arrangement"><option value="alternate" selected>交互</option><option value="gradient">グラデ</option></select></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景色</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
+        </section>
+      </aside>
+      <section class="stage-panel tool-stage pattern-stage" aria-label="縞模様のプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">14本 · ストライプ</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="縞や同心円が流れる背景アニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:06.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      </section>
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="動きと出力の設定">
+        <section class="control-section">
+          <div class="section-heading"><h2>動き</h2><output id="travelSummary" class="meta-value">1周で2本ぶん</output></div>
+          <div class="field-row select-row"><label for="direction">向き</label><select id="direction"><option value="forward" selected>正方向</option><option value="reverse">逆方向</option></select></div>
+          <label class="field-row" for="cycles"><span>周回数</span><output id="cyclesValue">1周</output></label><input id="cycles" class="range" type="range" min="1" max="8" step="1" value="1" />
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">6.0 秒</output></label><input id="duration" class="range" type="range" min="0.5" max="90" step="0.5" value="6" />
+          <p class="loop-note"><strong>ループ</strong>1周で色の並びがちょうど1巡ぶん進むので、末尾と先頭がつながります。</p>
+        </section>
+        <section class="control-section export-section"><div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div><dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="800">800 × 800</option><option value="1600x900">1600 × 900</option><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div></dl><label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" /><button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div></section>
+      </aside>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="motion-storage.js"></script>
+    <script src="tool-nav.js"></script><script src="motion-toolkit.js"></script><script src="motion-pattern.js"></script><script src="stripe-drift.js"></script><script src="motion-controls.js"></script><script src="tool-ui.js"></script>
+  </body>
+</html>

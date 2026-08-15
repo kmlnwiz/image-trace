@@ -1,0 +1,64 @@
+@import url("./studio-tools.css");
+
+body.grid-pulse { --tool-accent: #1f7a8c; --tool-accent-soft: #e2f0f3; }
+body.color-grid { --tool-accent: #a97a1f; --tool-accent-soft: #f7eeda; }
+body.gradient-loop { --tool-accent: #7a4bbd; --tool-accent-soft: #ece4f8; }
+body.stripe-drift { --tool-accent: #b8532a; --tool-accent-soft: #f8e8e0; }
+body.noise-plasma { --tool-accent: #2f6f4f; --tool-accent-soft: #e2f0e8; }
+
+/* The background tools carry two to six colours instead of one, so the swatch
+   rows are laid out as a grid rather than a stack of full width fields. */
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  margin: 6px 0 13px;
+}
+
+.palette-grid .color-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.palette-grid .color-control output {
+  width: auto;
+  font-size: 10px;
+}
+
+.palette-grid .color-control[hidden] {
+  display: none;
+}
+
+/* Nothing is loaded into these tools, so the preview is the only place the
+   pattern can be judged; a checker keeps a light output readable. */
+.pattern-stage .canvas-shell {
+  background-color: #eef1f3;
+  background-image:
+    linear-gradient(45deg, #e2e7ea 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e7ea 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e7ea 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e7ea 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.loop-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  background: var(--tool-accent-soft);
+}
+
+.loop-note strong {
+  flex: none;
+  color: var(--ink);
+  font-size: 10px;
+  white-space: nowrap;
+}

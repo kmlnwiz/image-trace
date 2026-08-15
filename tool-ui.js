@@ -23,6 +23,11 @@
     "slide-puzzle": "motion-lab:slide-puzzle-settings:v1",
     "memory-flip": "motion-lab:memory-flip-settings:v1",
     "pencil-hatch": "motion-lab:pencil-hatch-settings:v1",
+    "grid-pulse": "motion-lab:grid-pulse-settings:v1",
+    "color-grid": "motion-lab:color-grid-settings:v1",
+    "gradient-loop": "motion-lab:gradient-loop-settings:v1",
+    "stripe-drift": "motion-lab:stripe-drift-settings:v1",
+    "noise-plasma": "motion-lab:noise-plasma-settings:v1",
   };
   const settingsKey = settingsKeys[page];
 
