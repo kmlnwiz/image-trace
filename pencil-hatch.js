@@ -1,16 +1,26 @@
 "use strict";
 
 const PENCIL_HATCH_SETTINGS_KEY = "motion-lab:pencil-hatch-settings:v1";
-// The stroke layout is decided on a small copy of the picture. Cells only need a
-// handful of samples each, and keeping the analysis this size holds a rebuild
-// well under a frame even at the finest layer.
-const ANALYSIS_LONG_EDGE = 320;
+// The stroke layout is decided on a small copy of the picture, and each layer is
+// also test painted at this size so the next one can read back what really
+// landed. Big enough that a thin line still leaves the right amount of ink.
+const ANALYSIS_LONG_EDGE = 480;
 const MAX_STROKES = 12000;
+// Roughness maps onto this much mean colour error per channel. Measured errors
+// after the base coat sit well under it, so the slider spans from "revisit every
+// cell" to "leave all but the worst alone".
+const ROUGHNESS_RANGE = 42;
+// A layer up to this many strokes is test painted with the real multiply blend.
+const PROOF_EXACT_LIMIT = 600;
 const MAX_PASSES = 48;
-// Strokes reach past their own cell so neighbours interleave instead of meeting
-// at a visible seam, and each one is turned and shifted a little so the cells
-// stop reading as a grid.
-const STROKE_OVERSHOOT = 1.2;
+// A scribble spans its own cell and no more. It used to be given a fifth again
+// on top, which is what made strokes wash across their neighbours; the wander is
+// now the only thing that crosses the edge, and it is small.
+const STROKE_REACH = 1;
+// Each patch takes its own size about that span, so a layer stops reading as a
+// grid of equal blocks. Centred on 1 so the cells still tile.
+const SIZE_MIN = 0.9;
+const SIZE_MAX = 1.26;
 const ANGLE_JITTER = 0.2;
 const CENTER_JITTER = 0.12;
 // A pass is sampled about this often so the wobble along it has room to bend.
@@ -49,6 +59,10 @@ const paintCanvas = document.createElement("canvas");
 const paintContext = paintCanvas.getContext("2d");
 const analysisCanvas = document.createElement("canvas");
 const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
+// Each layer is painted here during a rebuild. Reading this back is what tells
+// the next layer how far off the picture still is.
+const proofCanvas = document.createElement("canvas");
+const proofContext = proofCanvas.getContext("2d", { willReadFrequently: true });
 const state = { image: null, imageName: "sample-pencil.png", imageBytes: 0, imageUrl: "", seed: Date.now(), strokes: [], bakedCount: 0, layerCount: 0 };
 let player = null;
 
@@ -129,13 +143,10 @@ function contourAngle(field, width, height, x, y, fallback) {
 function buildZigzag(centerX, centerY, halfWidth, halfHeight, angle, pitch, jitter, random) {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  const extentAlong = (halfWidth * Math.abs(cos) + halfHeight * Math.abs(sin)) * STROKE_OVERSHOOT;
-  const extentAcross = (halfWidth * Math.abs(sin) + halfHeight * Math.abs(cos)) * STROKE_OVERSHOOT;
-  const passes = MotionToolkit.clamp(Math.round(extentAcross * 2 / Math.max(1, pitch)), 2, MAX_PASSES);
-  const step = extentAcross * 2 / passes;
-  // Without a phase of its own every cell starts its passes at the same place,
-  // and the hatching of neighbouring cells lines up into long straight runs.
-  const phase = (random() - 0.5) * step;
+  // How far the scribble is allowed to get from its centre, before deciding how
+  // much of that budget the wander is going to spend.
+  const limitAlong = (halfWidth * Math.abs(cos) + halfHeight * Math.abs(sin)) * STROKE_REACH;
+  const limitAcross = (halfWidth * Math.abs(sin) + halfHeight * Math.abs(cos)) * STROKE_REACH;
   // A hand wanders slowly. Noise on every point reads as static, so the drift
   // along a pass is two slow waves given their own rate and phase per stroke,
   // and only a trace of per point noise rides on top.
@@ -148,15 +159,24 @@ function buildZigzag(centerX, centerY, halfWidth, halfHeight, angle, pitch, jitt
   // it goes instead of stacking inside a rectangle.
   const spineRate = 0.35 + random() * 0.85;
   const spinePhase = random() * Math.PI * 2;
-  const spineReach = extentAlong * (0.14 + random() * 0.26);
+  // The lean and the ragged ends come out of the span rather than being added to
+  // it, so a stroke covers its cell without washing over the next one.
+  const spineReach = limitAlong * (0.08 + random() * 0.16);
+  const extentAlong = Math.max(limitAlong * 0.45, limitAlong - spineReach);
+  const extentAcross = limitAcross;
+  const passes = MotionToolkit.clamp(Math.round(extentAcross * 2 / Math.max(1, pitch)), 2, MAX_PASSES);
+  const step = extentAcross * 2 / passes;
+  // Without a phase of its own every cell starts its passes at the same place,
+  // and the hatching of neighbouring cells lines up into long straight runs.
+  const phase = (random() - 0.5) * step;
   const segments = MotionToolkit.clamp(Math.round(extentAlong * 2 / SEGMENT_LENGTH), MIN_SEGMENTS, MAX_SEGMENTS);
   const points = [];
 
   for (let pass = 0; pass <= passes; pass += 1) {
     const forward = pass % 2 === 0;
     // Ragged ends and uneven spacing: no two passes reach the same place or sit
-    // exactly one pitch from the last.
-    const reach = extentAlong * (0.84 + random() * 0.28);
+    // exactly one pitch from the last. Ends only fall short, never overrun.
+    const reach = extentAlong * (0.82 + random() * 0.18);
     const spine = Math.sin(pass / passes * spineRate * Math.PI * 2 + spinePhase) * spineReach;
     const from = (forward ? -reach : reach) + spine;
     const to = (forward ? reach : -reach) + spine;
@@ -188,14 +208,20 @@ function measureStroke(points) {
   return progress;
 }
 
-// Under "重ねて濃く" the canvas multiplies, so the colour laid down is the ratio
-// that carries what is already there to the colour the picture wants.
-function multiplicand(target, current) {
-  if (current <= 1) return 255;
-  return MotionToolkit.clamp(Math.round(target / current * 255), 0, 255);
+// The colour to lay down so that one stroke at this opacity carries what is
+// already on the paper to what the picture wants. Solving for the opacity
+// matters: assuming a solid stroke leaves every layer short of the target, and
+// the drawing ends up whatever colour the pressure slider happens to give.
+function solveColor(target, current, alpha, multiply) {
+  const kept = current * (1 - alpha);
+  if (multiply) {
+    if (current <= 1) return 255;
+    return MotionToolkit.clamp(Math.round((target - kept) / (current * alpha) * 255), 0, 255);
+  }
+  return MotionToolkit.clamp(Math.round((target - kept) / alpha), 0, 255);
 }
 
-function rebuildStrokes() {
+function rebuildStrokes(accurate = true) {
   state.strokes = [];
   state.bakedCount = 0;
   state.layerCount = 0;
@@ -206,15 +232,25 @@ function rebuildStrokes() {
   const analysisWidth = source.width;
   const analysisHeight = source.height;
   const luminance = luminanceField(source);
-  const paper = hexToRgb(elements.paperColor.value);
-  // Mirrors what the canvas will end up holding, so a later layer can tell which
-  // cells still miss the picture and which are already close enough to leave.
-  const approximation = new Float32Array(analysisWidth * analysisHeight * 3);
-  for (let index = 0; index < analysisWidth * analysisHeight; index += 1) {
-    approximation[index * 3] = paper[0];
-    approximation[index * 3 + 1] = paper[1];
-    approximation[index * 3 + 2] = paper[2];
-  }
+  // The layers are test painted here at analysis size. Every later layer works
+  // from a readback of this canvas, so overshoot, wobble and the scatter in width
+  // and pressure are all accounted for by having actually happened.
+  proofCanvas.width = analysisWidth;
+  proofCanvas.height = analysisHeight;
+  proofContext.setTransform(1, 0, 0, 1, 0, 0);
+  proofContext.globalCompositeOperation = "source-over";
+  proofContext.globalAlpha = 1;
+  proofContext.fillStyle = elements.paperColor.value;
+  proofContext.fillRect(0, 0, analysisWidth, analysisHeight);
+  proofContext.lineCap = "round";
+  proofContext.lineJoin = "round";
+  let proof = proofContext.getImageData(0, 0, analysisWidth, analysisHeight).data;
+  // A scribble leaves paper showing between its passes, so a cell only travels
+  // part of the way to the colour its stroke carries. Each layer measures what
+  // share of the aimed move actually happened and hands it to the next one,
+  // which then aims past the target by exactly that much. Without this the
+  // drawing lands short of the picture and reads washed out.
+  let coverage = 0.8;
 
   const random = MotionToolkit.seededRandom(state.seed);
   const layers = Number(elements.layers.value);
@@ -223,14 +259,11 @@ function rebuildStrokes() {
   const lineWidth = Number(elements.lineWidth.value);
   const jitter = Number(elements.jitter.value) / 100 * pitch * 0.9;
   const multiply = elements.blendMode.value === "multiply";
-  const threshold = Number(elements.roughness.value) / 100 * 90;
+  const threshold = Number(elements.roughness.value) / 100 * ROUGHNESS_RANGE;
   const baseAngle = Number(elements.baseAngle.value) * Math.PI / 180;
   const angleMode = elements.angleMode.value;
-  // A scribble leaves gaps between its passes, so the simulated coverage is the
-  // share of the cell the line actually touches.
-  const coverage = MotionToolkit.clamp(lineWidth / Math.max(1, pitch), 0.15, 1);
   const pressure = Number(elements.pressure.value) / 100;
-  const strength = MotionToolkit.clamp(pressure * coverage, 0.02, 1);
+  const proofScale = analysisWidth / width;
   const scaleX = analysisWidth / width;
   const scaleY = analysisHeight / height;
 
@@ -248,6 +281,9 @@ function rebuildStrokes() {
     const cellWidth = width / columns;
     const cellHeight = height / rows;
     const layerAngle = baseAngle + CROSS_ANGLES[layer % CROSS_ANGLES.length] * Math.PI / 180;
+    const layerStart = state.strokes.length;
+    const before = proof;
+    let aimedMove = 0;
 
     for (let row = 0; row < rows; row += 1) {
       for (let column = 0; column < columns; column += 1) {
@@ -264,9 +300,9 @@ function rebuildStrokes() {
             targetRed += source.data[index * 4];
             targetGreen += source.data[index * 4 + 1];
             targetBlue += source.data[index * 4 + 2];
-            currentRed += approximation[index * 3];
-            currentGreen += approximation[index * 3 + 1];
-            currentBlue += approximation[index * 3 + 2];
+            currentRed += proof[index * 4];
+            currentGreen += proof[index * 4 + 1];
+            currentBlue += proof[index * 4 + 2];
             samples += 1;
           }
         }
@@ -278,9 +314,35 @@ function rebuildStrokes() {
         // the coarse passes left wrong, so flat areas stay roughly blocked in.
         if (layer > 0 && error < threshold) continue;
 
-        const color = multiply
-          ? [multiplicand(targetRed, currentRed), multiplicand(targetGreen, currentGreen), multiplicand(targetBlue, currentBlue)]
-          : [Math.round(targetRed), Math.round(targetGreen), Math.round(targetBlue)];
+        // No two strokes are pressed the same, and the colour has to be solved
+        // for the opacity this one will actually carry. Aim past the target by
+        // the share of the move the last layer failed to deliver.
+        const alpha = MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1);
+        // Reach past the target along the line from where the paper is now. The
+        // three channels are pulled back together rather than each clipping on
+        // its own, which is what would turn a dark colour into flat black.
+        const stepRed = targetRed - currentRed;
+        const stepGreen = targetGreen - currentGreen;
+        const stepBlue = targetBlue - currentBlue;
+        let boost = 1 / coverage;
+        if (stepRed < 0) boost = Math.min(boost, currentRed / -stepRed);
+        if (stepGreen < 0) boost = Math.min(boost, currentGreen / -stepGreen);
+        if (stepBlue < 0) boost = Math.min(boost, currentBlue / -stepBlue);
+        boost = Math.max(1, boost);
+        const aimRed = MotionToolkit.clamp(currentRed + stepRed * boost, 0, 255);
+        const aimGreen = MotionToolkit.clamp(currentGreen + stepGreen * boost, 0, 255);
+        const aimBlue = MotionToolkit.clamp(currentBlue + stepBlue * boost, 0, 255);
+        aimedMove += (Math.abs(aimRed - currentRed) + Math.abs(aimGreen - currentGreen) + Math.abs(aimBlue - currentBlue)) / 3 * samples;
+        const color = [
+          solveColor(aimRed, currentRed, alpha, multiply),
+          solveColor(aimGreen, currentGreen, alpha, multiply),
+          solveColor(aimBlue, currentBlue, alpha, multiply),
+        ];
+        // What this stroke leaves behind over the backdrop it was solved for, so
+        // the test paint can lay it down without asking the canvas to multiply.
+        const proofColor = multiply
+          ? [currentRed * color[0] / 255, currentGreen * color[1] / 255, currentBlue * color[2] / 255].map(Math.round)
+          : color;
         const angle = angleMode === "fixed"
           ? baseAngle
           : angleMode === "gradient"
@@ -288,7 +350,10 @@ function rebuildStrokes() {
             : layerAngle;
         const centerX = (column + 0.5) * cellWidth + (random() - 0.5) * cellWidth * CENTER_JITTER;
         const centerY = (row + 0.5) * cellHeight + (random() - 0.5) * cellHeight * CENTER_JITTER;
-        const points = buildZigzag(centerX, centerY, cellWidth / 2, cellHeight / 2, angle + (random() - 0.5) * ANGLE_JITTER, pitch, jitter, random);
+        // Each patch is its own size, so the layer stops looking like a grid of
+        // equal blocks even before the wander is applied.
+        const size = SIZE_MIN + random() * (SIZE_MAX - SIZE_MIN);
+        const points = buildZigzag(centerX, centerY, cellWidth / 2 * size, cellHeight / 2 * size, angle + (random() - 0.5) * ANGLE_JITTER, pitch, jitter, random);
         const normalized = new Float32Array(points.length);
         for (let index = 0; index < points.length; index += 2) {
           normalized[index] = points[index] / width;
@@ -298,10 +363,10 @@ function rebuildStrokes() {
           points: normalized,
           progress: measureStroke(points),
           color,
-          // No two pencils are sharpened the same and no two strokes are pressed
-          // the same, so width and pressure carry their own scatter.
+          proofColor,
+          // No two pencils are sharpened the same.
           width: lineWidth * (0.78 + random() * 0.5),
-          alpha: MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1),
+          alpha,
           layer,
           // Row by row, reversing every other row, so consecutive strokes are
           // neighbours and the hand walks the page instead of hopping about.
@@ -311,19 +376,41 @@ function rebuildStrokes() {
           error,
           rank: random(),
         });
-
-        for (let y = top; y < bottom; y += 1) {
-          for (let x = left; x < right; x += 1) {
-            const index = (y * analysisWidth + x) * 3;
-            for (let channel = 0; channel < 3; channel += 1) {
-              const current = approximation[index + channel];
-              const painted = multiply ? current * color[channel] / 255 : color[channel];
-              approximation[index + channel] = current + (painted - current) * strength;
-            }
-          }
-        }
       }
     }
+
+    // Paint the finished layer for real, then read it back. Cells inside one
+    // layer all work from the same picture, so their order never matters. The
+    // last layer is skipped: nothing reads it, and it is much the largest.
+    const another = layer + 1 < layers && cell / 2 >= pitch * 1.5;
+    if (!another) break;
+    // Asking the canvas to multiply is worth about 170ms a rebuild here, whatever
+    // the stroke count, so a moving slider never does it: the test paint lays
+    // down each stroke's product directly, which matches inside the cell the
+    // stroke was solved for and only drifts where strokes overlap. Settling on
+    // release does the real blend, and only for the coarse layers, which set the
+    // colour everything later is measured against.
+    const trueBlend = multiply && accurate && state.strokes.length - layerStart <= PROOF_EXACT_LIMIT;
+    proofContext.globalCompositeOperation = trueBlend ? "multiply" : "source-over";
+    for (let index = layerStart; index < state.strokes.length; index += 1) {
+      const stroke = state.strokes[index];
+      paintStroke(proofContext, stroke, 1, analysisWidth, analysisHeight, proofScale, trueBlend ? stroke.color : stroke.proofColor);
+    }
+    proof = proofContext.getImageData(0, 0, analysisWidth, analysisHeight).data;
+
+    // How much of the aimed move the paper actually took. The next layer aims
+    // past its target by the reciprocal, which is what closes the gap the gaps
+    // between passes would otherwise leave.
+    let actualMove = 0;
+    for (let index = 0; index < proof.length; index += 4) {
+      actualMove += (Math.abs(proof[index] - before[index])
+        + Math.abs(proof[index + 1] - before[index + 1])
+        + Math.abs(proof[index + 2] - before[index + 2])) / 3;
+    }
+    // Held well off zero on purpose. A small measured coverage would ask the next
+    // layer to aim far past the target, and in the dark parts that overshoot
+    // clamps at black and takes the colour with it.
+    if (aimedMove > 0) coverage = MotionToolkit.clamp(actualMove / aimedMove, 0.62, 1);
   }
 
   sortStrokes();
@@ -398,12 +485,12 @@ function completedAt(elapsed) {
   return low;
 }
 
-function paintStroke(target, stroke, fraction, width, height) {
+function paintStroke(target, stroke, fraction, width, height, widthScale = 1, color = stroke.color) {
   const points = stroke.points;
   const progress = stroke.progress;
   const count = progress.length;
-  target.strokeStyle = `rgb(${stroke.color[0]}, ${stroke.color[1]}, ${stroke.color[2]})`;
-  target.lineWidth = stroke.width;
+  target.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  target.lineWidth = Math.max(0.1, stroke.width * widthScale);
   target.globalAlpha = stroke.alpha;
   target.beginPath();
   target.moveTo(points[0] * width, points[1] * height);
@@ -530,8 +617,8 @@ player = MotionToolkit.createPlayer({
   getFileBase: () => `${state.imageName.replace(/\.[^.]+$/, "")}-pencil-hatch`,
 });
 
-function rebuildAndRender(message) {
-  rebuildStrokes();
+function rebuildAndRender(message, accurate = true) {
+  rebuildStrokes(accurate);
   resetPaint();
   player.reset();
   updateLabels();
@@ -655,8 +742,13 @@ elements.fileSummary.addEventListener("drop", (event) => handleImageFile(event.d
 elements.sample.addEventListener("click", async () => setImage(await makeSample(), "sample-pencil.png"));
 
 // Everything that changes where the strokes land has to lay them out again.
+// Dragging gets the quick test paint so the preview keeps up; letting go, or
+// typing a value, settles on the accurate one.
 [elements.brushSize, elements.layers, elements.roughness, elements.pitch, elements.lineWidth, elements.pressure, elements.jitter, elements.baseAngle]
-  .forEach((control) => control.addEventListener("input", () => rebuildAndRender()));
+  .forEach((control) => {
+    control.addEventListener("input", () => rebuildAndRender(undefined, false));
+    control.addEventListener("change", () => rebuildAndRender());
+  });
 [elements.imageFit, elements.blendMode, elements.angleMode, elements.order]
   .forEach((control) => control.addEventListener("change", () => rebuildAndRender()));
 elements.paperColor.addEventListener("input", () => rebuildAndRender());
