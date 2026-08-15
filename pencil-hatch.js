@@ -1,11 +1,17 @@
 "use strict";
 
 const PENCIL_HATCH_SETTINGS_KEY = "motion-lab:pencil-hatch-settings:v1";
-// The stroke layout is decided on a small copy of the picture. Cells only need a
-// handful of samples each, and keeping the analysis this size holds a rebuild
-// well under a frame even at the finest layer.
-const ANALYSIS_LONG_EDGE = 320;
+// The stroke layout is decided on a small copy of the picture, and each layer is
+// also test painted at this size so the next one can read back what really
+// landed. Big enough that a thin line still leaves the right amount of ink.
+const ANALYSIS_LONG_EDGE = 480;
 const MAX_STROKES = 12000;
+// Roughness maps onto this much mean colour error per channel. Measured errors
+// after the base coat sit well under it, so the slider spans from "revisit every
+// cell" to "leave all but the worst alone".
+const ROUGHNESS_RANGE = 42;
+// A layer up to this many strokes is test painted with the real multiply blend.
+const PROOF_EXACT_LIMIT = 600;
 const MAX_PASSES = 48;
 // Strokes reach past their own cell so neighbours interleave instead of meeting
 // at a visible seam, and each one is turned and shifted a little so the cells
@@ -49,6 +55,10 @@ const paintCanvas = document.createElement("canvas");
 const paintContext = paintCanvas.getContext("2d");
 const analysisCanvas = document.createElement("canvas");
 const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
+// Each layer is painted here during a rebuild. Reading this back is what tells
+// the next layer how far off the picture still is.
+const proofCanvas = document.createElement("canvas");
+const proofContext = proofCanvas.getContext("2d", { willReadFrequently: true });
 const state = { image: null, imageName: "sample-pencil.png", imageBytes: 0, imageUrl: "", seed: Date.now(), strokes: [], bakedCount: 0, layerCount: 0 };
 let player = null;
 
@@ -188,14 +198,20 @@ function measureStroke(points) {
   return progress;
 }
 
-// Under "重ねて濃く" the canvas multiplies, so the colour laid down is the ratio
-// that carries what is already there to the colour the picture wants.
-function multiplicand(target, current) {
-  if (current <= 1) return 255;
-  return MotionToolkit.clamp(Math.round(target / current * 255), 0, 255);
+// The colour to lay down so that one stroke at this opacity carries what is
+// already on the paper to what the picture wants. Solving for the opacity
+// matters: assuming a solid stroke leaves every layer short of the target, and
+// the drawing ends up whatever colour the pressure slider happens to give.
+function solveColor(target, current, alpha, multiply) {
+  const kept = current * (1 - alpha);
+  if (multiply) {
+    if (current <= 1) return 255;
+    return MotionToolkit.clamp(Math.round((target - kept) / (current * alpha) * 255), 0, 255);
+  }
+  return MotionToolkit.clamp(Math.round((target - kept) / alpha), 0, 255);
 }
 
-function rebuildStrokes() {
+function rebuildStrokes(accurate = true) {
   state.strokes = [];
   state.bakedCount = 0;
   state.layerCount = 0;
@@ -206,15 +222,19 @@ function rebuildStrokes() {
   const analysisWidth = source.width;
   const analysisHeight = source.height;
   const luminance = luminanceField(source);
-  const paper = hexToRgb(elements.paperColor.value);
-  // Mirrors what the canvas will end up holding, so a later layer can tell which
-  // cells still miss the picture and which are already close enough to leave.
-  const approximation = new Float32Array(analysisWidth * analysisHeight * 3);
-  for (let index = 0; index < analysisWidth * analysisHeight; index += 1) {
-    approximation[index * 3] = paper[0];
-    approximation[index * 3 + 1] = paper[1];
-    approximation[index * 3 + 2] = paper[2];
-  }
+  // The layers are test painted here at analysis size. Every later layer works
+  // from a readback of this canvas, so overshoot, wobble and the scatter in width
+  // and pressure are all accounted for by having actually happened.
+  proofCanvas.width = analysisWidth;
+  proofCanvas.height = analysisHeight;
+  proofContext.setTransform(1, 0, 0, 1, 0, 0);
+  proofContext.globalCompositeOperation = "source-over";
+  proofContext.globalAlpha = 1;
+  proofContext.fillStyle = elements.paperColor.value;
+  proofContext.fillRect(0, 0, analysisWidth, analysisHeight);
+  proofContext.lineCap = "round";
+  proofContext.lineJoin = "round";
+  let proof = proofContext.getImageData(0, 0, analysisWidth, analysisHeight).data;
 
   const random = MotionToolkit.seededRandom(state.seed);
   const layers = Number(elements.layers.value);
@@ -223,14 +243,11 @@ function rebuildStrokes() {
   const lineWidth = Number(elements.lineWidth.value);
   const jitter = Number(elements.jitter.value) / 100 * pitch * 0.9;
   const multiply = elements.blendMode.value === "multiply";
-  const threshold = Number(elements.roughness.value) / 100 * 90;
+  const threshold = Number(elements.roughness.value) / 100 * ROUGHNESS_RANGE;
   const baseAngle = Number(elements.baseAngle.value) * Math.PI / 180;
   const angleMode = elements.angleMode.value;
-  // A scribble leaves gaps between its passes, so the simulated coverage is the
-  // share of the cell the line actually touches.
-  const coverage = MotionToolkit.clamp(lineWidth / Math.max(1, pitch), 0.15, 1);
   const pressure = Number(elements.pressure.value) / 100;
-  const strength = MotionToolkit.clamp(pressure * coverage, 0.02, 1);
+  const proofScale = analysisWidth / width;
   const scaleX = analysisWidth / width;
   const scaleY = analysisHeight / height;
 
@@ -248,6 +265,7 @@ function rebuildStrokes() {
     const cellWidth = width / columns;
     const cellHeight = height / rows;
     const layerAngle = baseAngle + CROSS_ANGLES[layer % CROSS_ANGLES.length] * Math.PI / 180;
+    const layerStart = state.strokes.length;
 
     for (let row = 0; row < rows; row += 1) {
       for (let column = 0; column < columns; column += 1) {
@@ -264,9 +282,9 @@ function rebuildStrokes() {
             targetRed += source.data[index * 4];
             targetGreen += source.data[index * 4 + 1];
             targetBlue += source.data[index * 4 + 2];
-            currentRed += approximation[index * 3];
-            currentGreen += approximation[index * 3 + 1];
-            currentBlue += approximation[index * 3 + 2];
+            currentRed += proof[index * 4];
+            currentGreen += proof[index * 4 + 1];
+            currentBlue += proof[index * 4 + 2];
             samples += 1;
           }
         }
@@ -278,9 +296,19 @@ function rebuildStrokes() {
         // the coarse passes left wrong, so flat areas stay roughly blocked in.
         if (layer > 0 && error < threshold) continue;
 
-        const color = multiply
-          ? [multiplicand(targetRed, currentRed), multiplicand(targetGreen, currentGreen), multiplicand(targetBlue, currentBlue)]
-          : [Math.round(targetRed), Math.round(targetGreen), Math.round(targetBlue)];
+        // No two strokes are pressed the same, and the colour has to be solved
+        // for the opacity this one will actually carry.
+        const alpha = MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1);
+        const color = [
+          solveColor(targetRed, currentRed, alpha, multiply),
+          solveColor(targetGreen, currentGreen, alpha, multiply),
+          solveColor(targetBlue, currentBlue, alpha, multiply),
+        ];
+        // What this stroke leaves behind over the backdrop it was solved for, so
+        // the test paint can lay it down without asking the canvas to multiply.
+        const proofColor = multiply
+          ? [currentRed * color[0] / 255, currentGreen * color[1] / 255, currentBlue * color[2] / 255].map(Math.round)
+          : color;
         const angle = angleMode === "fixed"
           ? baseAngle
           : angleMode === "gradient"
@@ -298,10 +326,10 @@ function rebuildStrokes() {
           points: normalized,
           progress: measureStroke(points),
           color,
-          // No two pencils are sharpened the same and no two strokes are pressed
-          // the same, so width and pressure carry their own scatter.
+          proofColor,
+          // No two pencils are sharpened the same.
           width: lineWidth * (0.78 + random() * 0.5),
-          alpha: MotionToolkit.clamp(pressure * (0.72 + random() * 0.56), 0.02, 1),
+          alpha,
           layer,
           // Row by row, reversing every other row, so consecutive strokes are
           // neighbours and the hand walks the page instead of hopping about.
@@ -311,19 +339,27 @@ function rebuildStrokes() {
           error,
           rank: random(),
         });
-
-        for (let y = top; y < bottom; y += 1) {
-          for (let x = left; x < right; x += 1) {
-            const index = (y * analysisWidth + x) * 3;
-            for (let channel = 0; channel < 3; channel += 1) {
-              const current = approximation[index + channel];
-              const painted = multiply ? current * color[channel] / 255 : color[channel];
-              approximation[index + channel] = current + (painted - current) * strength;
-            }
-          }
-        }
       }
     }
+
+    // Paint the finished layer for real, then read it back. Cells inside one
+    // layer all work from the same picture, so their order never matters. The
+    // last layer is skipped: nothing reads it, and it is much the largest.
+    const another = layer + 1 < layers && cell / 2 >= pitch * 1.5;
+    if (!another) break;
+    // Asking the canvas to multiply is worth about 170ms a rebuild here, whatever
+    // the stroke count, so a moving slider never does it: the test paint lays
+    // down each stroke's product directly, which matches inside the cell the
+    // stroke was solved for and only drifts where strokes overlap. Settling on
+    // release does the real blend, and only for the coarse layers, which set the
+    // colour everything later is measured against.
+    const trueBlend = multiply && accurate && state.strokes.length - layerStart <= PROOF_EXACT_LIMIT;
+    proofContext.globalCompositeOperation = trueBlend ? "multiply" : "source-over";
+    for (let index = layerStart; index < state.strokes.length; index += 1) {
+      const stroke = state.strokes[index];
+      paintStroke(proofContext, stroke, 1, analysisWidth, analysisHeight, proofScale, trueBlend ? stroke.color : stroke.proofColor);
+    }
+    proof = proofContext.getImageData(0, 0, analysisWidth, analysisHeight).data;
   }
 
   sortStrokes();
@@ -398,12 +434,12 @@ function completedAt(elapsed) {
   return low;
 }
 
-function paintStroke(target, stroke, fraction, width, height) {
+function paintStroke(target, stroke, fraction, width, height, widthScale = 1, color = stroke.color) {
   const points = stroke.points;
   const progress = stroke.progress;
   const count = progress.length;
-  target.strokeStyle = `rgb(${stroke.color[0]}, ${stroke.color[1]}, ${stroke.color[2]})`;
-  target.lineWidth = stroke.width;
+  target.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  target.lineWidth = Math.max(0.1, stroke.width * widthScale);
   target.globalAlpha = stroke.alpha;
   target.beginPath();
   target.moveTo(points[0] * width, points[1] * height);
@@ -530,8 +566,8 @@ player = MotionToolkit.createPlayer({
   getFileBase: () => `${state.imageName.replace(/\.[^.]+$/, "")}-pencil-hatch`,
 });
 
-function rebuildAndRender(message) {
-  rebuildStrokes();
+function rebuildAndRender(message, accurate = true) {
+  rebuildStrokes(accurate);
   resetPaint();
   player.reset();
   updateLabels();
@@ -655,8 +691,13 @@ elements.fileSummary.addEventListener("drop", (event) => handleImageFile(event.d
 elements.sample.addEventListener("click", async () => setImage(await makeSample(), "sample-pencil.png"));
 
 // Everything that changes where the strokes land has to lay them out again.
+// Dragging gets the quick test paint so the preview keeps up; letting go, or
+// typing a value, settles on the accurate one.
 [elements.brushSize, elements.layers, elements.roughness, elements.pitch, elements.lineWidth, elements.pressure, elements.jitter, elements.baseAngle]
-  .forEach((control) => control.addEventListener("input", () => rebuildAndRender()));
+  .forEach((control) => {
+    control.addEventListener("input", () => rebuildAndRender(undefined, false));
+    control.addEventListener("change", () => rebuildAndRender());
+  });
 [elements.imageFit, elements.blendMode, elements.angleMode, elements.order]
   .forEach((control) => control.addEventListener("change", () => rebuildAndRender()));
 elements.paperColor.addEventListener("input", () => rebuildAndRender());
