@@ -34,7 +34,8 @@ const elements = {
   blendMode: document.querySelector("#blendMode"), angleMode: document.querySelector("#angleMode"),
   baseAngle: document.querySelector("#baseAngle"), baseAngleValue: document.querySelector("#baseAngleValue"),
   paperColor: document.querySelector("#paperColor"), overlay: document.querySelector("#overlay"), overlayValue: document.querySelector("#overlayValue"),
-  order: document.querySelector("#order"), duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"),
+  order: document.querySelector("#order"), allocation: document.querySelector("#allocation"),
+  duration: document.querySelector("#duration"), durationValue: document.querySelector("#durationValue"),
   simultaneous: document.querySelector("#simultaneous"), simultaneousValue: document.querySelector("#simultaneousValue"),
   easing: document.querySelector("#easing"), shuffle: document.querySelector("#shuffleButton"),
   stageStatus: document.querySelector("#stageStatus"), previewSpeed: document.querySelector("#previewSpeed"),
@@ -56,7 +57,8 @@ function saveSettings() {
     seed: state.seed, imageFit: elements.imageFit.value, brushSize: elements.brushSize.value, layers: elements.layers.value,
     roughness: elements.roughness.value, pitch: elements.pitch.value, lineWidth: elements.lineWidth.value, pressure: elements.pressure.value,
     jitter: elements.jitter.value, blendMode: elements.blendMode.value, angleMode: elements.angleMode.value, baseAngle: elements.baseAngle.value,
-    paperColor: elements.paperColor.value, overlay: elements.overlay.value, order: elements.order.value, duration: elements.duration.value,
+    paperColor: elements.paperColor.value, overlay: elements.overlay.value, order: elements.order.value,
+    allocation: elements.allocation.value, duration: elements.duration.value,
     simultaneous: elements.simultaneous.value, easing: elements.easing.value, previewSpeed: elements.previewSpeed.value,
     imageTime: elements.imageTime.value, outputSize: elements.outputSize.value,
   });
@@ -66,7 +68,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(PENCIL_HATCH_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  ["imageFit", "brushSize", "layers", "roughness", "pitch", "lineWidth", "pressure", "jitter", "blendMode", "angleMode", "baseAngle", "paperColor", "overlay", "order", "duration", "simultaneous", "easing", "previewSpeed", "imageTime", "outputSize"]
+  ["imageFit", "brushSize", "layers", "roughness", "pitch", "lineWidth", "pressure", "jitter", "blendMode", "angleMode", "baseAngle", "paperColor", "overlay", "order", "allocation", "duration", "simultaneous", "easing", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
 }
 
@@ -142,6 +144,11 @@ function buildZigzag(centerX, centerY, halfWidth, halfHeight, angle, pitch, jitt
   const slowPhase = random() * Math.PI * 2;
   const fastPhase = random() * Math.PI * 2;
   const drift = jitter * 1.7;
+  // The hand travels while it scribbles, so the run of passes leans sideways as
+  // it goes instead of stacking inside a rectangle.
+  const spineRate = 0.35 + random() * 0.85;
+  const spinePhase = random() * Math.PI * 2;
+  const spineReach = extentAlong * (0.14 + random() * 0.26);
   const segments = MotionToolkit.clamp(Math.round(extentAlong * 2 / SEGMENT_LENGTH), MIN_SEGMENTS, MAX_SEGMENTS);
   const points = [];
 
@@ -150,8 +157,9 @@ function buildZigzag(centerX, centerY, halfWidth, halfHeight, angle, pitch, jitt
     // Ragged ends and uneven spacing: no two passes reach the same place or sit
     // exactly one pitch from the last.
     const reach = extentAlong * (0.84 + random() * 0.28);
-    const from = forward ? -reach : reach;
-    const to = forward ? reach : -reach;
+    const spine = Math.sin(pass / passes * spineRate * Math.PI * 2 + spinePhase) * spineReach;
+    const from = (forward ? -reach : reach) + spine;
+    const to = (forward ? reach : -reach) + spine;
     const across = -extentAcross + step * pass + phase + (random() - 0.5) * step * 0.55;
     for (let part = 0; part <= segments; part += 1) {
       const travel = part / segments;
@@ -316,6 +324,7 @@ function rebuildStrokes() {
   }
 
   sortStrokes();
+  assignTiming();
 }
 
 function orderKey(stroke) {
@@ -333,23 +342,56 @@ function sortStrokes() {
   state.strokes.sort((first, second) => (first.layer - second.layer) || (orderKey(first) - orderKey(second)));
 }
 
-function timing() {
-  const total = Math.max(0.1, Number(elements.duration.value));
-  const count = state.strokes.length;
-  if (!count) return { total, count: 0, interval: 0, strokeTime: total };
-  if (count === 1) return { total, count, interval: 0, strokeTime: total };
-  // Starts are spread evenly and every stroke takes the same time, so the number
-  // in flight is exactly what the control asks for and the last one lands on the
-  // final frame.
-  const simultaneous = MotionToolkit.clamp(Number(elements.simultaneous.value), 1, count);
-  const interval = total / (count - 1 + simultaneous);
-  return { total, count, interval, strokeTime: interval * simultaneous };
+function totalDuration() {
+  return Math.max(0.1, Number(elements.duration.value));
 }
 
-function completedAt(elapsed, timings) {
-  if (!timings.count) return 0;
-  const step = timings.interval || timings.total;
-  return MotionToolkit.clamp(Math.floor((elapsed - timings.strokeTime) / step) + 1, 0, timings.count);
+// Every stroke carries its own start and length. Spending the same slice of the
+// clip on each layer is what makes the drawing read as one: the handful of coarse
+// scribbles are slow enough to watch being drawn and leave the picture rough,
+// then each finer layer rushes in over the same slice. Sharing the time out by
+// stroke count instead gives every stroke the same speed, which fills the
+// picture in evenly and has it looking finished by the middle.
+function assignTiming() {
+  const total = totalDuration();
+  const count = state.strokes.length;
+  if (!count) return;
+  const bounds = [];
+  for (let index = 0; index < count; index += 1) {
+    const previous = bounds[bounds.length - 1];
+    if (previous && state.strokes[index].layer === state.strokes[previous.start].layer) previous.end = index;
+    else bounds.push({ start: index, end: index });
+  }
+  const even = elements.allocation.value === "even";
+  let offset = 0;
+  bounds.forEach((band) => {
+    const length = band.end - band.start + 1;
+    const share = even ? total / bounds.length : total * length / count;
+    const simultaneous = MotionToolkit.clamp(Number(elements.simultaneous.value), 1, length);
+    // The starts fill the slice so the last stroke of the layer lands exactly on
+    // its far edge, and the next layer picks up from there.
+    const interval = length <= 1 ? 0 : share / (length - 1 + simultaneous);
+    const strokeTime = length <= 1 ? share : interval * simultaneous;
+    for (let index = band.start; index <= band.end; index += 1) {
+      state.strokes[index].start = offset + (index - band.start) * interval;
+      state.strokes[index].span = strokeTime;
+    }
+    offset += share;
+  });
+}
+
+// Starts rise with the index and so do the endings, so the finished strokes are
+// always a prefix and a search can find where it ends.
+function completedAt(elapsed) {
+  let low = 0;
+  let high = state.strokes.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    const stroke = state.strokes[middle];
+    if (stroke.start + stroke.span <= elapsed) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 function paintStroke(target, stroke, fraction, width, height) {
@@ -418,18 +460,19 @@ function render(progress = player?.state.playhead || 0) {
   context.fillRect(0, 0, width, height);
   if (!state.image) return;
 
-  const timings = timing();
-  if (timings.count) {
-    const elapsed = progress * timings.total;
-    const completed = completedAt(elapsed, timings);
+  if (state.strokes.length) {
+    const elapsed = progress * totalDuration();
+    const completed = completedAt(elapsed);
     bakeTo(completed);
     context.drawImage(paintCanvas, 0, 0);
     applyPencil(context);
-    const started = timings.interval > 0 ? Math.min(timings.count - 1, Math.floor(elapsed / timings.interval)) : timings.count - 1;
-    for (let index = completed; index <= started; index += 1) {
-      const local = timings.strokeTime > 0 ? (elapsed - index * timings.interval) / timings.strokeTime : 1;
+    // Everything still travelling sits right after the finished run.
+    for (let index = completed; index < state.strokes.length; index += 1) {
+      const stroke = state.strokes[index];
+      if (stroke.start > elapsed) break;
+      const local = stroke.span > 0 ? (elapsed - stroke.start) / stroke.span : 1;
       if (local <= 0) continue;
-      paintStroke(context, state.strokes[index], MotionToolkit.ease(MotionToolkit.clamp(local, 0, 1), elements.easing.value), width, height);
+      paintStroke(context, stroke, MotionToolkit.ease(MotionToolkit.clamp(local, 0, 1), elements.easing.value), width, height);
     }
     context.globalCompositeOperation = "source-over";
     context.globalAlpha = 1;
@@ -461,12 +504,15 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.overlayValue.value = `${elements.overlay.value}%`;
   elements.durationValue.value = `${Number(elements.duration.value).toFixed(1)} 秒`;
   elements.baseAngle.disabled = elements.angleMode.value === "gradient";
-  const timings = timing();
-  elements.simultaneousValue.value = `${elements.simultaneous.value}本 · 1本 ${timings.strokeTime.toFixed(2)}秒 / ${Math.round(timings.strokeTime * 60)}f`;
-  elements.strokeCount.value = timings.count ? `${timings.count}本` : "—";
-  const drawn = completedAt(progress * timings.total, timings);
-  elements.stageStatus.textContent = timings.count
-    ? `${drawn} / ${timings.count}本 · ${state.layerCount}層`
+  const count = state.strokes.length;
+  // The coarse layer is the one whose strokes are slow enough to watch, so its
+  // pace is what the label reports.
+  const coarse = count ? state.strokes[0].span : 0;
+  elements.simultaneousValue.value = `${elements.simultaneous.value}本 · 1層目 ${coarse.toFixed(2)}秒 / ${Math.round(coarse * 60)}f`;
+  elements.strokeCount.value = count ? `${count}本` : "—";
+  const drawn = count ? completedAt(progress * totalDuration()) : 0;
+  elements.stageStatus.textContent = count
+    ? `${drawn} / ${count}本 · ${state.layerCount}層`
     : "画像を読み込み中";
 }
 
@@ -610,10 +656,15 @@ elements.sample.addEventListener("click", async () => setImage(await makeSample(
 [elements.imageFit, elements.blendMode, elements.angleMode, elements.order]
   .forEach((control) => control.addEventListener("change", () => rebuildAndRender()));
 elements.paperColor.addEventListener("input", () => rebuildAndRender());
-[elements.duration, elements.simultaneous].forEach((control) => control.addEventListener("input", () => {
+// Retiming keeps the strokes as they are, so the baked prefix stays valid.
+function retime() {
+  assignTiming();
   player.reset();
   refresh();
-}));
+}
+
+[elements.duration, elements.simultaneous].forEach((control) => control.addEventListener("input", retime));
+elements.allocation.addEventListener("change", retime);
 elements.easing.addEventListener("change", refresh);
 elements.overlay.addEventListener("input", refresh);
 elements.shuffle.addEventListener("click", () => {
