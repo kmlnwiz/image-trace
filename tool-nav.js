@@ -21,9 +21,14 @@
     { file: "random-kanji.html", name: "Random Kanji", summary: "ランダム画アニメーション", group: "漢字" },
     { file: "stroke-assemble.html", name: "Stroke Assemble", summary: "散らばった画を漢字へ戻す", group: "漢字" },
     { file: "radical-highlight.html", name: "Radical Highlight", summary: "部首や指定した画を強調する", group: "漢字" },
+    { file: "grid-pulse.html", name: "Grid Pulse", summary: "格子が波打つループ背景", group: "背景" },
+    { file: "color-grid.html", name: "Color Grid", summary: "格子の色が周期的に変わる", group: "背景" },
+    { file: "gradient-loop.html", name: "Gradient Loop", summary: "色が漂うグラデーション背景", group: "背景" },
+    { file: "stripe-drift.html", name: "Stripe Drift", summary: "縞と同心円が流れる背景", group: "背景" },
+    { file: "noise-plasma.html", name: "Noise Plasma", summary: "うねる有機的な背景", group: "背景" },
   ];
 
-  const GROUP_ORDER = ["画像", "文字", "漢字"];
+  const GROUP_ORDER = ["画像", "文字", "漢字", "背景"];
 
   function currentFile() {
     return location.pathname.split("/").pop() || "index.html";
