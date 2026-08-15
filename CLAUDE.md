@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Motion Lab — ブラウザだけで動画（WebM）と静止画（PNG）素材を作る15種類のツール集。ビルドシステム・パッケージ管理・テスト・依存パッケージは一切なし。素の HTML / CSS / JavaScript（`"use strict"` + IIFE またはトップレベル定数）を Canvas 2D で描画している。
+Motion Lab — ブラウザだけで動画（WebM）と静止画（PNG）素材を作る16種類のツール集。ビルドシステム・パッケージ管理・テスト・依存パッケージは一切なし。素の HTML / CSS / JavaScript（`"use strict"` + IIFE またはトップレベル定数）を Canvas 2D で描画している。
 
 ## 実行
 
@@ -73,7 +73,7 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 - `text-dial.*` → 「Dial Type」、`polyomino-motion.*` → 「Polyomino Type」
 - `slide-puzzle.*` → 「Slide Puzzle」、`memory-flip.*` → 「Memory Flip」（この2つはファイル名とツール名が一致する）
 
-CSS は `studio-tools.css`（Slice / Flip / Stroke Assemble / Radical / Slide Puzzle）、`typography-tools.css`（Word Conveyor / Panel Reveal / Memory Flip、`studio-tools.css` を `@import` している）を共有し、残りはツール専用。`text-reel.html` は `text-dial.css` も読む。ツールごとのアクセントは `body.<tool>` の `--tool-accent` / `--tool-accent-soft` で定義する。
+CSS は `studio-tools.css`（Slice / Flip / Stroke Assemble / Radical / Slide Puzzle / Pencil Hatch）、`typography-tools.css`（Word Conveyor / Panel Reveal / Memory Flip、`studio-tools.css` を `@import` している）を共有し、残りはツール専用。`text-reel.html` は `text-dial.css` も読む。ツールごとのアクセントは `body.<tool>` の `--tool-accent` / `--tool-accent-soft` で定義する。
 
 ## 新しいツールを足すときのチェックリスト
 

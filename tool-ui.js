@@ -22,6 +22,7 @@
     "polyomino-motion": "motion-lab:polyomino-motion-settings:v1",
     "slide-puzzle": "motion-lab:slide-puzzle-settings:v1",
     "memory-flip": "motion-lab:memory-flip-settings:v1",
+    "pencil-hatch": "motion-lab:pencil-hatch-settings:v1",
   };
   const settingsKey = settingsKeys[page];
 
