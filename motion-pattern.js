@@ -103,6 +103,63 @@
     return 0.5 + ((x - 0.5) * cos + (y - 0.5) * sin) / extent;
   }
 
+  // Names the eight compass points of the emboss light, so the angle reads as a
+  // direction next to the number. The canvas y axis points down, which is why
+  // the second name is the lower right and not the upper one.
+  const LIGHT_NAMES = ["右", "右下", "下", "左下", "左", "左上", "上", "右上"];
+
+  function lightDirectionName(angle) {
+    const normalized = (((Number(angle) || 0) % 360) + 360) % 360;
+    return LIGHT_NAMES[Math.round(normalized / 45) % 8];
+  }
+
+  function toRgb(color) {
+    const parts = String(color || "").match(/^rgba?\(([^)]+)\)$/i);
+    if (!parts) return hexToRgb(color);
+    const values = parts[1].split(",").map((part) => Number.parseFloat(part));
+    return { r: values[0] || 0, g: values[1] || 0, b: values[2] || 0 };
+  }
+
+  // Lightens for a positive amount and darkens for a negative one, so a shaded
+  // face keeps the hue of the colour it came from instead of turning grey.
+  function shade(color, amount) {
+    const target = amount >= 0 ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
+    return rgbCss(mixRgb(toRgb(color), target, Math.min(1, Math.abs(amount))));
+  }
+
+  // Emboss lights the shape from within: the whole shape drops into shade, a
+  // copy inset by the relief depth and pushed toward the light paints the lit
+  // face, and a second inset copy puts the base colour back in the middle. What
+  // is left is a lit rim on one edge and a shaded rim on the other. Because the
+  // moved copy is inset by exactly the distance it travels, the relief never
+  // reaches past the outline, and every pass is opaque so the rims never stack
+  // into a muddy tint. `insetPaint(depth)` is what makes that possible, so a
+  // tool that cannot shrink its shape simply gets no emboss.
+  function paintEmboss(context, options, paint, insetPaint) {
+    const depth = Math.max(0, Number(options?.depth) || 0);
+    if (!(depth > 0) || typeof insetPaint !== "function") {
+      paint();
+      return;
+    }
+    const radians = (Number(options?.angle) || 0) * Math.PI / 180;
+    const offsetX = Math.cos(radians) * depth;
+    const offsetY = Math.sin(radians) * depth;
+    const strength = Math.max(0, Math.min(1, Number(options?.strength) || 0));
+    const base = options?.base ?? context.fillStyle;
+    const paintWith = (color, draw) => {
+      context.fillStyle = color;
+      context.strokeStyle = color;
+      draw();
+    };
+    context.save();
+    paintWith(shade(base, -strength), paint);
+    context.translate(offsetX, offsetY);
+    paintWith(shade(base, strength), () => insetPaint(depth));
+    context.translate(-offsetX, -offsetY);
+    paintWith(base, () => insetPaint(depth));
+    context.restore();
+  }
+
   // Grain is a fixed overlay rather than a per frame draw: an animated one
   // would break the loop and cost a full canvas of random numbers every frame.
   const grainTiles = new Map();
@@ -151,11 +208,14 @@
     mixRgb,
     rgbCss,
     mixHex,
+    shade,
     paletteAt,
     paletteTable,
     readPalette,
     syncPaletteRows,
     gridField,
+    lightDirectionName,
+    paintEmboss,
     paintGrain,
   };
 })();

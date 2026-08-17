@@ -296,6 +296,122 @@
     return new Blob([header, segment], { type: "video/webm" });
   }
 
+  // --- MP4 muxing --------------------------------------------------------
+  // The same idea as the WebM writer above, in the other container: H.264 out of
+  // WebCodecs and the ISO base media boxes written by hand. The moov box is put
+  // in front of the media so the file starts playing without being fully read.
+
+  const MP4_TIMESCALE = 90_000;
+
+  function u8(...values) {
+    return Uint8Array.from(values);
+  }
+
+  function u16(value) {
+    return u8((value >> 8) & 255, value & 255);
+  }
+
+  function u32(value) {
+    return u8((value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255);
+  }
+
+  function mp4Box(type, ...payload) {
+    const body = concatBytes(payload.map((part) => (part instanceof Uint8Array ? part : concatBytes(part))));
+    return concatBytes([u32(body.length + 8), textEncoder.encode(type), body]);
+  }
+
+  // A full box carries a version and flags before its payload.
+  function mp4FullBox(type, version, flags, ...payload) {
+    return mp4Box(type, u8(version, (flags >> 16) & 255, (flags >> 8) & 255, flags & 255), ...payload);
+  }
+
+  function mp4Table(entries) {
+    return concatBytes([u32(entries.length), ...entries]);
+  }
+
+  // samples: [{ data, isKeyFrame, decodeDuration, presentationOffset }] in decode
+  // order. `description` is the avcC payload the encoder handed over.
+  function buildMp4Blob({ width, height, samples, description, durationTicks }) {
+    const matrix = concatBytes([
+      u32(0x00010000), u32(0), u32(0),
+      u32(0), u32(0x00010000), u32(0),
+      u32(0), u32(0), u32(0x40000000),
+    ]);
+    const mvhd = mp4FullBox("mvhd", 0, 0,
+      u32(0), u32(0), u32(MP4_TIMESCALE), u32(durationTicks),
+      u32(0x00010000), u16(0x0100), u16(0), u32(0), u32(0),
+      matrix, u32(0), u32(0), u32(0), u32(0), u32(0), u32(0), u32(2));
+    const tkhd = mp4FullBox("tkhd", 0, 3,
+      u32(0), u32(0), u32(1), u32(0), u32(durationTicks),
+      u32(0), u32(0), u16(0), u16(0), u16(0), u16(0),
+      matrix, u32(width * 65536), u32(height * 65536));
+    const mdhd = mp4FullBox("mdhd", 0, 0,
+      u32(0), u32(0), u32(MP4_TIMESCALE), u32(durationTicks), u16(0x55C4), u16(0));
+    const hdlr = mp4FullBox("hdlr", 0, 0,
+      u32(0), textEncoder.encode("vide"), u32(0), u32(0), u32(0),
+      textEncoder.encode("Motion Lab\0"));
+    const dinf = mp4Box("dinf", mp4FullBox("dref", 0, 0, u32(1), mp4FullBox("url ", 0, 1)));
+
+    const avcC = mp4Box("avcC", description);
+    const avc1 = mp4Box("avc1",
+      u8(0, 0, 0, 0, 0, 0), u16(1),
+      u16(0), u16(0), u32(0), u32(0), u32(0),
+      u16(width), u16(height),
+      u32(0x00480000), u32(0x00480000), u32(0), u16(1),
+      new Uint8Array(32),
+      u16(0x0018), u16(0xFFFF),
+      avcC);
+    const stsd = mp4FullBox("stsd", 0, 0, u32(1), avc1);
+
+    // Runs of equal duration are written once, which is nearly always one run.
+    const timeRuns = [];
+    for (const sample of samples) {
+      const last = timeRuns[timeRuns.length - 1];
+      if (last && last.delta === sample.decodeDuration) last.count += 1;
+      else timeRuns.push({ count: 1, delta: sample.decodeDuration });
+    }
+    const stts = mp4FullBox("stts", 0, 0, mp4Table(timeRuns.map((run) => concatBytes([u32(run.count), u32(run.delta)]))));
+
+    const syncs = [];
+    samples.forEach((sample, index) => { if (sample.isKeyFrame) syncs.push(u32(index + 1)); });
+    const stss = mp4FullBox("stss", 0, 0, mp4Table(syncs));
+
+    // Only needed when the encoder reordered frames, which it does not unless it
+    // chose to use B frames.
+    const shifted = samples.some((sample) => sample.presentationOffset !== 0);
+    const offsetRuns = [];
+    if (shifted) {
+      for (const sample of samples) {
+        const last = offsetRuns[offsetRuns.length - 1];
+        if (last && last.offset === sample.presentationOffset) last.count += 1;
+        else offsetRuns.push({ count: 1, offset: sample.presentationOffset });
+      }
+    }
+    const ctts = shifted
+      ? mp4FullBox("ctts", 0, 0, mp4Table(offsetRuns.map((run) => concatBytes([u32(run.count), u32(run.offset)]))))
+      : null;
+
+    const stsc = mp4FullBox("stsc", 0, 0, mp4Table([concatBytes([u32(1), u32(samples.length), u32(1)])]));
+    const stsz = mp4FullBox("stsz", 0, 0, u32(0), mp4Table(samples.map((sample) => u32(sample.data.length))));
+
+    const build = (mediaStart) => {
+      const stco = mp4FullBox("stco", 0, 0, mp4Table([u32(mediaStart)]));
+      const stbl = mp4Box("stbl", stsd, stts, ...(ctts ? [ctts] : []), stss, stsc, stsz, stco);
+      const minf = mp4Box("minf", mp4Box("vmhd", u8(0, 0, 0, 1), u16(0), u16(0), u16(0), u16(0)), dinf, stbl);
+      const mdia = mp4Box("mdia", mdhd, hdlr, minf);
+      const trak = mp4Box("trak", tkhd, mdia);
+      return mp4Box("moov", mvhd, trak);
+    };
+    const ftyp = mp4Box("ftyp", textEncoder.encode("isom"), u32(0x200),
+      textEncoder.encode("isom"), textEncoder.encode("iso2"), textEncoder.encode("avc1"), textEncoder.encode("mp41"));
+    // The chunk offset has to point past the header, and the header's own size does
+    // not depend on the value it holds, so one dry run is enough to find it.
+    const moovSize = build(0).length;
+    const moov = build(ftyp.length + moovSize + 8);
+    const media = concatBytes(samples.map((sample) => sample.data));
+    return new Blob([ftyp, moov, u32(media.length + 8), textEncoder.encode("mdat"), media], { type: "video/mp4" });
+  }
+
   // setTimeout is clamped to once per second in a hidden tab, which would stall an
   // export the moment the user switches away. A MessageChannel is not throttled.
   const yieldChannel = new MessageChannel();
@@ -310,14 +426,31 @@
     });
   }
 
-  async function pickVideoCodec(width, height, bitrate) {
+  const VIDEO_FORMATS = {
+    webm: {
+      extension: "webm", label: "WebM",
+      // Levels are listed high to low: the first one the browser accepts wins.
+      candidates: [
+        { codec: "vp09.00.41.08", codecId: "V_VP9" },
+        { codec: "vp09.00.10.08", codecId: "V_VP9" },
+        { codec: "vp8", codecId: "V_VP8" },
+      ],
+    },
+    mp4: {
+      extension: "mp4", label: "MP4",
+      // High, then main, then baseline. The avc format gives length prefixed NAL
+      // units and an avcC description, which is what the MP4 writer wants.
+      candidates: [
+        { codec: "avc1.640028", avc: true },
+        { codec: "avc1.4D0028", avc: true },
+        { codec: "avc1.42001F", avc: true },
+      ],
+    },
+  };
+
+  async function pickVideoCodec(width, height, bitrate, format) {
     if (typeof window.VideoEncoder !== "function" || typeof window.VideoFrame !== "function") return null;
-    // Levels are listed high to low: the first one the browser accepts wins.
-    const candidates = [
-      { codec: "vp09.00.41.08", codecId: "V_VP9" },
-      { codec: "vp09.00.10.08", codecId: "V_VP9" },
-      { codec: "vp8", codecId: "V_VP8" },
-    ];
+    const candidates = (VIDEO_FORMATS[format] || VIDEO_FORMATS.webm).candidates;
     for (const candidate of candidates) {
       try {
         const support = await VideoEncoder.isConfigSupported({
@@ -326,6 +459,7 @@
           height,
           bitrate,
           framerate: EXPORT_FPS,
+          ...(candidate.avc ? { avc: { format: "avc" } } : {}),
         });
         if (support?.supported) return candidate;
       } catch {
@@ -339,30 +473,43 @@
   // from its index rather than from the clock, so a render slower than 1/60 s only
   // makes the export take longer — it never drops a frame or stretches the clip.
   // `render(playhead)` receives a normalised 0..1 position and must draw synchronously.
-  async function renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond }) {
+  // `format` is "webm" or "mp4". MP4 needs H.264, which not every browser will
+  // encode; when it cannot, the export falls back to WebM rather than failing, and
+  // the returned blob says which one it is.
+  async function renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond, format }) {
     const frames = Math.max(2, Math.round(totalFrames));
     const bitrate = videoBitsPerSecond || 12_000_000;
-    const codec = await pickVideoCodec(canvas.width, canvas.height, bitrate);
-    if (codec) {
+    const wanted = VIDEO_FORMATS[format] ? format : "webm";
+    for (const attempt of wanted === "mp4" ? ["mp4", "webm"] : ["webm"]) {
+      const codec = await pickVideoCodec(canvas.width, canvas.height, bitrate, attempt);
+      if (!codec) continue;
       try {
-        return await encodeWithWebCodecs({ canvas, totalFrames: frames, render, onProgress, bitrate, codec });
+        return await encodeWithWebCodecs({ canvas, totalFrames: frames, render, onProgress, bitrate, codec, format: attempt });
       } catch (error) {
-        console.warn("WebCodecsでの書き出しに失敗したため従来の方式に切り替えます", error);
+        console.warn("WebCodecsでの書き出しに失敗したため別の方式に切り替えます", error);
       }
     }
     return recordWithMediaRecorder({ canvas, totalFrames: frames, render, onProgress, bitrate });
   }
 
-  async function encodeWithWebCodecs({ canvas, totalFrames, render, onProgress, bitrate, codec }) {
+  async function encodeWithWebCodecs({ canvas, totalFrames, render, onProgress, bitrate, codec, format }) {
     const width = canvas.width;
     const height = canvas.height;
     const encoded = [];
     let encoderError = null;
+    let description = null;
     const encoder = new VideoEncoder({
-      output(chunk) {
+      output(chunk, metadata) {
+        // The parameter sets arrive alongside the first chunk and are what the MP4
+        // sample description is built from.
+        if (!description && metadata?.decoderConfig?.description) {
+          const source = metadata.decoderConfig.description;
+          description = new Uint8Array(source instanceof ArrayBuffer ? source : source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength));
+        }
         const data = new Uint8Array(chunk.byteLength);
         chunk.copyTo(data);
         encoded.push({
+          timestamp: chunk.timestamp,
           timestampMs: Math.round(chunk.timestamp / 1000),
           isKeyFrame: chunk.type === "key",
           data,
@@ -372,7 +519,10 @@
         encoderError = error;
       },
     });
-    encoder.configure({ codec: codec.codec, width, height, bitrate, framerate: EXPORT_FPS, latencyMode: "quality" });
+    encoder.configure({
+      codec: codec.codec, width, height, bitrate, framerate: EXPORT_FPS, latencyMode: "quality",
+      ...(codec.avc ? { avc: { format: "avc" } } : {}),
+    });
     try {
       for (let frame = 0; frame < totalFrames; frame += 1) {
         if (encoderError) throw encoderError;
@@ -395,6 +545,26 @@
       if (encoderError) throw encoderError;
     } finally {
       if (encoder.state !== "closed") encoder.close();
+    }
+    if (format === "mp4") {
+      if (!description) throw new Error("MP4のヘッダー情報を取得できませんでした");
+      // Decode order is what the file stores; where the encoder reordered frames the
+      // difference is carried in each sample's presentation offset.
+      const ticks = MP4_TIMESCALE / EXPORT_FPS;
+      const presentation = encoded.map((frame) => frame.timestamp).sort((left, right) => left - right);
+      const samples = encoded.map((frame, index) => ({
+        data: frame.data,
+        isKeyFrame: frame.isKeyFrame,
+        decodeDuration: Math.round(ticks),
+        presentationOffset: Math.max(0, Math.round((frame.timestamp - presentation[index]) * MP4_TIMESCALE / 1_000_000)),
+      }));
+      return buildMp4Blob({
+        width,
+        height,
+        samples,
+        description,
+        durationTicks: Math.round(totalFrames * ticks),
+      });
     }
     encoded.sort((left, right) => left.timestampMs - right.timestampMs);
     return buildWebmBlob({
@@ -459,6 +629,32 @@
     return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
   }
 
+  // The chosen container is a preference of the workshop rather than of one tool,
+  // so it is remembered once and every page picks it up.
+  const EXPORT_FORMAT_KEY = "motion-lab:export-format:v1";
+
+  function exportFormat(select) {
+    const control = select || document.querySelector("#outputFormat");
+    const value = control?.value;
+    if (VIDEO_FORMATS[value]) return value;
+    try {
+      const stored = window.localStorage?.getItem(EXPORT_FORMAT_KEY);
+      if (VIDEO_FORMATS[stored]) return stored;
+    } catch {
+      // The tools remain usable when storage is unavailable.
+    }
+    return "webm";
+  }
+
+  function rememberExportFormat(value) {
+    if (!VIDEO_FORMATS[value]) return;
+    try {
+      window.localStorage?.setItem(EXPORT_FORMAT_KEY, value);
+    } catch {
+      // The tools remain usable when storage is unavailable.
+    }
+  }
+
   function createPlayer(options) {
     const canvas = options.canvas;
     const elements = {
@@ -476,7 +672,13 @@
       progressBar: document.querySelector("#exportProgressBar"),
       toast: document.querySelector("#toast"),
       outputSize: document.querySelector("#outputSize"),
+      outputFormat: document.querySelector("#outputFormat"),
     };
+    if (elements.outputFormat) {
+      const stored = exportFormat(null);
+      if (VIDEO_FORMATS[stored]) elements.outputFormat.value = stored;
+      elements.outputFormat.addEventListener("change", () => rememberExportFormat(elements.outputFormat.value));
+    }
     const state = {
       playhead: 0,
       isPlaying: false,
@@ -628,10 +830,12 @@
       // Claim the export before the first await so a double click cannot start two runs.
       beginExport();
       const totalFrames = frameCount();
+      const wanted = exportFormat(elements.outputFormat);
       try {
         const blob = await renderWebm({
           canvas,
           totalFrames,
+          format: wanted,
           videoBitsPerSecond: options.videoBitsPerSecond,
           render(playhead) {
             state.playhead = playhead;
@@ -642,9 +846,15 @@
             update();
           },
         });
-        downloadBlob(blob, `${safeFileName(options.getFileBase?.(), "motion")}.webm`);
+        // What came back is what gets written: asking for MP4 on a browser that
+        // cannot encode H.264 still produces a file, and the toast says which.
+        const made = blob.type.includes("mp4") ? "mp4" : "webm";
+        downloadBlob(blob, `${safeFileName(options.getFileBase?.(), "motion")}.${made}`);
         endExport();
-        showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+        const size = `${(blob.size / 1024 / 1024).toFixed(1)} MB`;
+        showToast(made === wanted
+          ? `${VIDEO_FORMATS[made].label}を書き出しました (${size})`
+          : `MP4に対応していないため${VIDEO_FORMATS[made].label}で書き出しました (${size})`);
       } catch (error) {
         endExport();
         showToast(error?.message || "動画を書き出せませんでした");
@@ -743,6 +953,8 @@
     roundedRectPath,
     downloadBlob,
     renderWebm,
+    exportFormat,
+    rememberExportFormat,
     createPlayer,
   };
 })();

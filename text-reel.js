@@ -884,7 +884,9 @@ async function exportVideo() {
   elements.exportProgress.hidden = false;
   elements.exportProgressBar.style.width = "0%";
   try {
+    const wanted = MotionToolkit.exportFormat();
     const blob = await MotionToolkit.renderWebm({
+      format: wanted,
       canvas: elements.canvas,
       totalFrames: Math.round(Number(elements.duration.value) * 60),
       render(playhead) {
@@ -896,8 +898,13 @@ async function exportVideo() {
         updateUI();
       },
     });
-    MotionToolkit.downloadBlob(blob, "text-reel.webm");
-    showToast(`WebMを書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+    // What came back is what gets written: a browser that cannot encode H.264
+    // still produces a file, and the toast says which one it is.
+    const made = blob.type.includes("mp4") ? "mp4" : "webm";
+    MotionToolkit.downloadBlob(blob, `text-reel.${made}`);
+    showToast(made === wanted
+      ? `${made === "mp4" ? "MP4" : "WebM"}を書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`
+      : `MP4に対応していないためWebMで書き出しました (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
   } catch (error) {
     showToast(error?.message || "動画を書き出せませんでした");
   } finally {

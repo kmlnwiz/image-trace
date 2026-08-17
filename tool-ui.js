@@ -22,7 +22,7 @@
     "polyomino-motion": "motion-lab:polyomino-motion-settings:v1",
     "slide-puzzle": "motion-lab:slide-puzzle-settings:v1",
     "memory-flip": "motion-lab:memory-flip-settings:v1",
-    "pencil-hatch": "motion-lab:pencil-hatch-settings:v1",
+    "pencil-hatch": "motion-lab:pencil-hatch-settings:v2",
     "grid-pulse": "motion-lab:grid-pulse-settings:v1",
     "color-grid": "motion-lab:color-grid-settings:v1",
     "gradient-loop": "motion-lab:gradient-loop-settings:v1",

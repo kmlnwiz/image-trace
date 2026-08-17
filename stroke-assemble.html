@@ -77,8 +77,8 @@
         </section>
 
         <section class="control-section export-section">
-          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM / PNG</span></div>
-          <div class="field-row select-row"><label for="outputSize">サイズ</label><select id="outputSize"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option><option value="1920x900">1920 × 900</option></select></div>
+          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM・MP4 / PNG</span></div>
+          <div class="field-row select-row"><label for="outputSize">サイズ</label><select id="outputSize"><option value="800" selected>800 × 800</option><option value="400">400 × 400</option><option value="1920x900">1920 × 900</option><option value="1920x1080">1920 × 1080</option></select></div><div class="field-row select-row"><label for="outputFormat">形式</label><select id="outputFormat"><option value="webm" selected>WebM</option><option value="mp4">MP4</option></select></div>
           <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label>
           <input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" />
           <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button>

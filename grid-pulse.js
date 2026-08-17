@@ -12,6 +12,8 @@ const elements = {
   cornerRadius: document.querySelector("#cornerRadius"), cornerRadiusValue: document.querySelector("#cornerRadiusValue"), cornerRadiusControl: document.querySelector("#cornerRadiusControl"),
   thickness: document.querySelector("#thickness"), thicknessValue: document.querySelector("#thicknessValue"), thicknessControl: document.querySelector("#thicknessControl"),
   tilt: document.querySelector("#tilt"), tiltValue: document.querySelector("#tiltValue"),
+  emboss: document.querySelector("#emboss"), embossValue: document.querySelector("#embossValue"),
+  embossAngle: document.querySelector("#embossAngle"), embossAngleValue: document.querySelector("#embossAngleValue"),
   backgroundColor: document.querySelector("#backgroundColor"), shapeColor: document.querySelector("#shapeColor"), shapeColorAlt: document.querySelector("#shapeColorAlt"),
   waveMode: document.querySelector("#waveMode"), waveShape: document.querySelector("#waveShape"),
   waveAngle: document.querySelector("#waveAngle"), waveAngleValue: document.querySelector("#waveAngleValue"),
@@ -31,7 +33,7 @@ const context = elements.canvas.getContext("2d");
 const state = { layout: "square", seed: 20260814, cells: [] };
 let player = null;
 
-const SETTING_CONTROLS = ["columns", "rows", "cellSize", "shape", "cornerRadius", "thickness", "tilt", "backgroundColor", "shapeColor", "shapeColorAlt", "waveMode", "waveShape", "waveAngle", "wavelength", "cycles", "jitter", "duration", "sizeMin", "opacityMin", "rotationAmount", "previewSpeed", "imageTime", "outputSize"];
+const SETTING_CONTROLS = ["columns", "rows", "cellSize", "shape", "cornerRadius", "thickness", "tilt", "emboss", "embossAngle", "backgroundColor", "shapeColor", "shapeColorAlt", "waveMode", "waveShape", "waveAngle", "wavelength", "cycles", "jitter", "duration", "sizeMin", "opacityMin", "rotationAmount", "previewSpeed", "imageTime", "outputSize"];
 const SETTING_CHECKS = ["linkSize", "linkOpacity", "linkRotation", "linkColor"];
 
 function saveSettings() {
@@ -134,6 +136,12 @@ function render(playhead = player?.state.playhead || 0) {
   const opacityFloor = Number(elements.opacityMin.value) / 100;
   const rotationAmount = Number(elements.rotationAmount.value) * Math.PI / 180;
   const thickness = Number(elements.thickness.value) / 100;
+  // The relief is a share of the shape itself, so it keeps its proportion when
+  // the cells grow or the canvas changes size. Thin shapes are capped against
+  // their own line weight instead, or the lit face would eat the whole stroke.
+  const embossRatio = Number(elements.emboss.value) / 100;
+  const embossAngle = Number(elements.embossAngle.value);
+  const thinShape = ["ring", "cross", "line"].includes(shape);
 
   state.cells.forEach((cell) => {
     const field = MotionPattern.gridField(elements.waveMode.value, cell, elements.waveAngle.value);
@@ -151,7 +159,14 @@ function render(playhead = player?.state.playhead || 0) {
     context.translate((cell.column + 0.5 + cell.offset) * cellWidth, (cell.row + 0.5) * cellHeight);
     const rotation = tilt + (elements.linkRotation.checked ? amount * rotationAmount : 0);
     if (rotation) context.rotate(rotation);
-    shapeFill(size, Math.max(0.4, size * thickness), shape);
+    const weight = Math.max(0.4, size * thickness);
+    const relief = embossRatio * (thinShape ? Math.min(size * 0.12, weight / 3) : size * 0.12);
+    MotionPattern.paintEmboss(
+      context,
+      { depth: relief, angle: embossAngle, strength: 0.25 + embossRatio * 0.35, base: color },
+      () => shapeFill(size, weight, shape),
+      (depth) => shapeFill(Math.max(0.2, size - depth * 2), Math.max(0.2, weight - depth * 2), shape),
+    );
     context.restore();
   });
 }
@@ -164,6 +179,9 @@ function updateLabels() {
   elements.cornerRadiusValue.value = `${elements.cornerRadius.value}%`;
   elements.thicknessValue.value = `${elements.thickness.value}%`;
   elements.tiltValue.value = `${elements.tilt.value}°`;
+  elements.embossValue.value = `${elements.emboss.value}%`;
+  elements.embossAngleValue.value = `${elements.embossAngle.value}°（${MotionPattern.lightDirectionName(elements.embossAngle.value)}）`;
+  elements.embossAngle.disabled = Number(elements.emboss.value) === 0;
   elements.waveAngleValue.value = `${elements.waveAngle.value}°`;
   elements.wavelengthValue.value = `${elements.wavelength.value}%`;
   elements.cyclesValue.value = `${elements.cycles.value}周`;
@@ -201,7 +219,7 @@ function refresh({ rebuild = false } = {}) {
 }
 
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => refresh({ rebuild: true })));
-[elements.cellSize, elements.cornerRadius, elements.thickness, elements.tilt, elements.waveAngle, elements.wavelength, elements.cycles, elements.jitter, elements.duration, elements.sizeMin, elements.opacityMin, elements.rotationAmount].forEach((control) => control.addEventListener("input", () => refresh()));
+[elements.cellSize, elements.cornerRadius, elements.thickness, elements.tilt, elements.emboss, elements.embossAngle, elements.waveAngle, elements.wavelength, elements.cycles, elements.jitter, elements.duration, elements.sizeMin, elements.opacityMin, elements.rotationAmount].forEach((control) => control.addEventListener("input", () => refresh()));
 [elements.shape, elements.waveMode, elements.waveShape].forEach((control) => control.addEventListener("change", () => refresh()));
 [elements.backgroundColor, elements.shapeColor, elements.shapeColorAlt, elements.linkSize, elements.linkOpacity, elements.linkRotation, elements.linkColor].forEach((control) => control.addEventListener("input", () => refresh()));
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; refresh({ rebuild: true }); }));

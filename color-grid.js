@@ -8,6 +8,8 @@ const elements = {
   shape: document.querySelector("#shape"),
   gap: document.querySelector("#gap"), gapValue: document.querySelector("#gapValue"),
   cornerRadius: document.querySelector("#cornerRadius"), cornerRadiusValue: document.querySelector("#cornerRadiusValue"),
+  emboss: document.querySelector("#emboss"), embossValue: document.querySelector("#embossValue"),
+  embossAngle: document.querySelector("#embossAngle"), embossAngleValue: document.querySelector("#embossAngleValue"),
   cellCount: document.querySelector("#cellCount"),
   colorCount: document.querySelector("#colorCount"), backgroundColor: document.querySelector("#backgroundColor"),
   orderMode: document.querySelector("#orderMode"), blend: document.querySelector("#blend"),
@@ -24,7 +26,7 @@ const context = elements.canvas.getContext("2d");
 const state = { seed: 20260814, cells: [] };
 let player = null;
 
-const SETTING_CONTROLS = ["columns", "rows", "shape", "gap", "cornerRadius", "colorCount", "backgroundColor", "orderMode", "blend", "angle", "spread", "cycles", "duration", "previewSpeed", "imageTime", "outputSize"];
+const SETTING_CONTROLS = ["columns", "rows", "shape", "gap", "cornerRadius", "emboss", "embossAngle", "colorCount", "backgroundColor", "orderMode", "blend", "angle", "spread", "cycles", "duration", "previewSpeed", "imageTime", "outputSize"];
 
 function saveSettings() {
   const settings = { seed: state.seed, colors: colorInputs.map((input) => input.value) };
@@ -95,12 +97,26 @@ function render(playhead = player?.state.playhead || 0) {
   const spread = Number(elements.spread.value) / 100;
   const cycles = Number(elements.cycles.value);
   const smooth = elements.blend.value === "smooth";
+  // The relief is a share of the cell itself, so it keeps its proportion when
+  // the grid gets denser or the canvas changes size.
+  const embossRatio = Number(elements.emboss.value) / 100;
+  const embossDepth = Math.max(0, Math.min(cellWidth - gap, cellHeight - gap)) * embossRatio * 0.12;
+  const embossAngle = Number(elements.embossAngle.value);
+  const embossStrength = 0.25 + embossRatio * 0.35;
 
   state.cells.forEach((cell) => {
     const field = MotionPattern.gridField(elements.orderMode.value, cell, elements.angle.value);
     const color = MotionPattern.paletteAt(colors, phase * cycles + field * spread, smooth);
-    context.fillStyle = MotionPattern.rgbCss(color);
-    drawCell(cell.column * cellWidth + gap / 2, cell.row * cellHeight + gap / 2, cellWidth - gap, cellHeight - gap, shape, radius);
+    const fill = MotionPattern.rgbCss(color);
+    context.fillStyle = fill;
+    const x = cell.column * cellWidth + gap / 2;
+    const y = cell.row * cellHeight + gap / 2;
+    MotionPattern.paintEmboss(
+      context,
+      { depth: embossDepth, angle: embossAngle, strength: embossStrength, base: fill },
+      () => drawCell(x, y, cellWidth - gap, cellHeight - gap, shape, radius),
+      (depth) => drawCell(x + depth, y + depth, cellWidth - gap - depth * 2, cellHeight - gap - depth * 2, shape, radius),
+    );
   });
 }
 
@@ -109,6 +125,9 @@ function updateLabels() {
   elements.rowsValue.value = elements.rows.value;
   elements.gapValue.value = `${elements.gap.value} px`;
   elements.cornerRadiusValue.value = `${elements.cornerRadius.value}%`;
+  elements.embossValue.value = `${elements.emboss.value}%`;
+  elements.embossAngleValue.value = `${elements.embossAngle.value}°（${MotionPattern.lightDirectionName(elements.embossAngle.value)}）`;
+  elements.embossAngle.disabled = Number(elements.emboss.value) === 0;
   elements.angleValue.value = `${elements.angle.value}°`;
   elements.spreadValue.value = `${elements.spread.value}%`;
   elements.cyclesValue.value = `${elements.cycles.value}周`;
@@ -139,7 +158,7 @@ function refresh({ rebuild = false } = {}) {
 }
 
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => refresh({ rebuild: true })));
-[elements.gap, elements.cornerRadius, elements.angle, elements.spread, elements.cycles, elements.duration].forEach((control) => control.addEventListener("input", () => refresh()));
+[elements.gap, elements.cornerRadius, elements.emboss, elements.embossAngle, elements.angle, elements.spread, elements.cycles, elements.duration].forEach((control) => control.addEventListener("input", () => refresh()));
 [elements.shape, elements.colorCount, elements.orderMode, elements.blend].forEach((control) => control.addEventListener("change", () => refresh()));
 [elements.backgroundColor, ...colorInputs].forEach((control) => control.addEventListener("input", () => refresh()));
 elements.seed.addEventListener("click", () => { state.seed = Date.now() % 2147483647; refresh({ rebuild: true }); player.showToast("ばらつきを変えました"); });

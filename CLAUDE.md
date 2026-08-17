@@ -27,7 +27,7 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 | `tool-nav.js` | `window.MotionTools`。全ツールのカタログと、ヘッダー右側の共通ツールスイッチャー（`mountToolNav`） |
 | `motion-fonts.js` | `MotionFonts.createFontStore(assetKey)` / `registerFontFile`。ローカルフォントの IndexedDB 保存と `FontFace` 登録 |
 | `motion-order.js` | `MotionOrder.createOrderPicker`。「指定」順モードのピッカーと順位付け |
-| `motion-pattern.js` | `window.MotionPattern`。背景系5ツールだけが使う。**ループ安全な位相 `loopPhase`**・波形 `wave01` / `frac`、色ヘルパー `hexToRgb` / `mixHex` / `rgbCss` / `paletteAt` / `paletteTable` / `readPalette` / `syncPaletteRows`、格子の空間座標 `gridField`、粒状ノイズ `paintGrain` |
+| `motion-pattern.js` | `window.MotionPattern`。背景系5ツールだけが使う。**ループ安全な位相 `loopPhase`**・波形 `wave01` / `frac`、色ヘルパー `hexToRgb` / `mixHex` / `rgbCss` / `paletteAt` / `paletteTable` / `readPalette` / `syncPaletteRows`、格子の空間座標 `gridField`、図形を立体的に見せる `paintEmboss`、粒状ノイズ `paintGrain` |
 | `motion-controls.js` | スライダーの値表示を数値入力へ置き換え（`upgradeNumericFields`）、`.color-control` の hex 表示を自動同期（`syncColorOutputs`） |
 | `tool-ui.js` | 名前付きプリセットの保存・読込・削除、セクション単位の初期化、`tool-shell-compact` レイアウトの右パネル組み立て |
 | `tool-ui.css` | 共通の画面部品（ヘッダー・ツールスイッチャー・セクション・トランスポート・シークバー・数値入力・順番ピッカー・出力欄） |
@@ -46,11 +46,13 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 ツール側が実装するのは `render(playhead)` のみ（`playhead` は 0〜1 の正規化値）。書き出しは後述の `renderWebm` に委譲する。**描画は playhead から完全に決定的でなければならない**（フレーム間で乱数を引かない。ランダム性は `seededRandom(state.seed)` で固定する）。
 
-### WebM 書き出し（renderWebm）
+### 動画書き出し（renderWebm）
 
-`MotionToolkit.renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond })` が全ツール共通の書き出しエンジンで、`Promise<Blob>` を返す。`createPlayer` を使うツールはプレイヤー経由で、使わないツール（Outline / Kanji Writer / Random Kanji / Dial Type / Text Reel）は自分の `exportVideo` から直接呼ぶ。ダウンロードは `MotionToolkit.downloadBlob(blob, fileName)`。
+`MotionToolkit.renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond, format })` が全ツール共通の書き出しエンジンで、`Promise<Blob>` を返す。`format` は `"webm"`（既定）か `"mp4"`。`createPlayer` を使うツールはプレイヤー経由で、使わないツール（Outline / Kanji Writer / Random Kanji / Dial Type / Text Reel）は自分の `exportVideo` から直接呼ぶ。ダウンロードは `MotionToolkit.downloadBlob(blob, fileName)`。
 
-第一経路は **WebCodecs の `VideoEncoder`（VP9 → VP8）+ 自前の WebM マルチプレクサ**（`buildWebmBlob`、EBML を手書き）。各フレームのタイムスタンプは経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決まるので、1 枚の描画が 1/60 秒を超えても尺が伸びず、コマ落ちもしない — 遅い分だけ書き出し時間が延びるだけになる。キーフレームは 1 秒ごとで、クラスタもそこで切って Cues を張る。フレーム間の待ちは `setTimeout` ではなく `MessageChannel`（非表示タブでも 1 秒クランプを受けない）。
+第一経路は **WebCodecs の `VideoEncoder` + 自前のマルチプレクサ**。WebM は VP9 → VP8 で `buildWebmBlob`（EBML を手書き）、MP4 は H.264（high → main → baseline、`avc: { format: "avc" }`）で `buildMp4Blob`（ISO BMFF を手書き、`moov` を `mdat` の前に置く）。エンコーダが返す `metadata.decoderConfig.description` がそのまま `avcC` になる。**MP4 を選んでも H.264 が使えない環境では WebM へ自動フォールバックし、返る Blob の `type` で実際の形式が分かる。**
+
+出力形式は `#outputFormat`（`<select>`、値は `webm` / `mp4`）で選ぶ。ツール固有の設定ではなく `motion-lab:export-format:v1` に全ツール共通で保存するので、各ツールの `saveSettings` へ足す必要はない。`MotionToolkit.exportFormat()` が選択値または保存値を返す。`createPlayer` を使わないツールはこれを呼んで `format` に渡し、返った Blob の `type` から拡張子を決める。各フレームのタイムスタンプは経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決まるので、1 枚の描画が 1/60 秒を超えても尺が伸びず、コマ落ちもしない — 遅い分だけ書き出し時間が延びるだけになる。キーフレームは 1 秒ごとで、クラスタもそこで切って Cues を張る。フレーム間の待ちは `setTimeout` ではなく `MessageChannel`（非表示タブでも 1 秒クランプを受けない）。
 
 `VideoEncoder` が無い環境では `canvas.captureStream(0)` + `requestFrame()` + `MediaRecorder` の旧経路に自動フォールバックする（さらに `requestFrame` 非対応なら `captureStream(60)` の自動サンプリング）。旧経路は `MediaRecorder` が実時間でタイムスタンプを打つため、描画が重いとカクつく点に注意。
 
@@ -61,6 +63,8 @@ Grid Pulse / Color Grid / Gradient Loop / Stripe Drift / Noise Plasma の5本は
 1. **時間項は必ず playhead の周期関数にする。** 位相は `MotionPattern.loopPhase(playhead, duration)` を通す。書き出しは `playhead` を 0〜1 の**両端含みで**歩くため、素直に周期関数を書くと先頭フレームが末尾にもう一度出る。`loopPhase` は 1 フレーム分だけ位相を縮めて、末尾がループ点の 1 コマ手前で終わるようにしている。
 2. **周回数は整数スライダーにする。** `phase * cycles` が1ループでちょうど整数回進むので継ぎ目が消える。非整数を許すと必ず飛ぶ。
 3. **模様が動くツールは、色の並びが一巡する距離だけ動かす。** Stripe Drift の `colorSpan()` がその例で、交互配色なら色数ぶん、グラデ配色なら本数ぶんの縞を1ループで送る。1本ぶんだけ送ると位置は合っても色がずれる。
+
+図形の立体感（エンボス）は `MotionPattern.paintEmboss(context, options, paint, insetPaint)` に任せる。`paint()` が図形そのもの、`insetPaint(depth)` が **depth ぶん内側に縮めた同じ図形**（線なら `lineWidth - depth * 2`）で、縮めた図形を同じ距離だけ光の方へずらすので、光と影は必ず輪郭の内側に収まる。`insetPaint` を渡さないと素通しで `paint()` だけになる。`options.base` には図形の実際の色を渡す（3回とも不透明に塗るので、半透明の重ねでにごらない）。
 
 ランダム性は `state.seed` と `MotionToolkit.seededRandom` に固定し、ヘッダーのボタンで seed を振り直す。粒状ノイズ（`paintGrain`）はフレームごとに引き直さず、seed 由来の固定タイルを重ねる。
 

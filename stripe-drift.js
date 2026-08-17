@@ -7,6 +7,8 @@ const elements = {
   count: document.querySelector("#count"), countValue: document.querySelector("#countValue"), patternSummary: document.querySelector("#patternSummary"),
   duty: document.querySelector("#duty"), dutyValue: document.querySelector("#dutyValue"),
   angle: document.querySelector("#angle"), angleValue: document.querySelector("#angleValue"), angleControl: document.querySelector("#angleControl"),
+  emboss: document.querySelector("#emboss"), embossValue: document.querySelector("#embossValue"),
+  embossAngle: document.querySelector("#embossAngle"), embossAngleValue: document.querySelector("#embossAngleValue"),
   amplitude: document.querySelector("#amplitude"), amplitudeValue: document.querySelector("#amplitudeValue"),
   waveCount: document.querySelector("#waveCount"), waveCountValue: document.querySelector("#waveCountValue"),
   lineShift: document.querySelector("#lineShift"), lineShiftValue: document.querySelector("#lineShiftValue"), lineShiftControl: document.querySelector("#lineShiftControl"),
@@ -23,7 +25,7 @@ const context = elements.canvas.getContext("2d");
 const state = { pattern: "stripe" };
 let player = null;
 
-const SETTING_CONTROLS = ["count", "duty", "angle", "amplitude", "waveCount", "lineShift", "colorCount", "arrangement", "backgroundColor", "direction", "cycles", "duration", "previewSpeed", "imageTime", "outputSize"];
+const SETTING_CONTROLS = ["count", "duty", "angle", "emboss", "embossAngle", "amplitude", "waveCount", "lineShift", "colorCount", "arrangement", "backgroundColor", "direction", "cycles", "duration", "previewSpeed", "imageTime", "outputSize"];
 
 function saveSettings() {
   const settings = { pattern: state.pattern, colors: colorInputs.map((input) => input.value) };
@@ -56,6 +58,18 @@ function colorFor(index, colors) {
   return colors[((index % length) + length) % length];
 }
 
+// The relief scales with the band itself, and the rotation of the stripe layer
+// is taken back out of the light angle so the light keeps pointing the same way
+// on screen whatever the pattern angle is.
+function embossOptions(bandWidth, rotationDegrees = 0) {
+  const ratio = Number(elements.emboss.value) / 100;
+  return {
+    depth: Math.max(0, bandWidth) * ratio * 0.2,
+    angle: Number(elements.embossAngle.value) - rotationDegrees,
+    strength: 0.25 + ratio * 0.35,
+  };
+}
+
 function wavyBandPath(x, bandWidth, extent, amplitude, waveCount, wavePhase) {
   const steps = 48;
   context.beginPath();
@@ -84,19 +98,31 @@ function renderStripes(width, height, travel, colors) {
   const shift = MotionPattern.frac(travel) * period * colorSpan();
   const wavePhase = MotionPattern.frac(travel) * Math.PI * 2;
   const margin = Math.ceil(colorSpan()) + 2;
+  const emboss = embossOptions(bandWidth, Number(elements.angle.value));
   context.save();
   context.translate(width / 2, height / 2);
   context.rotate(Number(elements.angle.value) * Math.PI / 180);
   for (let index = -margin; index <= count + margin; index += 1) {
     const x = -extent / 2 + index * period + shift;
     if (x - amplitude > extent / 2 || x + bandWidth + amplitude < -extent / 2) continue;
-    context.fillStyle = colorFor(index, colors);
-    if (amplitude <= 0) {
-      context.fillRect(x, -extent / 2, bandWidth, extent);
-      continue;
-    }
-    wavyBandPath(x, bandWidth, extent, amplitude, waveCount, wavePhase);
-    context.fill();
+    const fill = colorFor(index, colors);
+    context.fillStyle = fill;
+    // The inset band keeps its full length: shortening it would open a gap at
+    // the corners once the lit face slides toward the light.
+    const band = (offset, width) => {
+      if (amplitude <= 0) {
+        context.fillRect(x + offset, -extent / 2 - offset, width, extent + offset * 2);
+        return;
+      }
+      wavyBandPath(x + offset, width, extent + offset * 2, amplitude, waveCount, wavePhase);
+      context.fill();
+    };
+    MotionPattern.paintEmboss(
+      context,
+      { ...emboss, base: fill },
+      () => band(0, bandWidth),
+      (depth) => band(depth, Math.max(0.2, bandWidth - depth * 2)),
+    );
   }
   context.restore();
 }
@@ -113,29 +139,36 @@ function renderRings(width, height, travel, colors) {
   const centerX = width / 2;
   const centerY = height / 2;
   const margin = Math.ceil(colorSpan()) + 2;
-  context.lineWidth = lineWidth;
+  const emboss = embossOptions(lineWidth);
   for (let index = -margin; index <= count + margin; index += 1) {
     const radius = index * period + shift;
     if (radius <= 0 || radius - amplitude - lineWidth > reach) continue;
-    context.strokeStyle = colorFor(index, colors);
-    if (amplitude <= 0) {
+    const stroke = colorFor(index, colors);
+    context.strokeStyle = stroke;
+    // A thinner stroke on the same path is the inset shape here: the ring keeps
+    // its radius and loses the relief depth from each side of the line.
+    const ring = (lineInset) => {
+      context.lineWidth = Math.max(0.2, lineWidth - lineInset * 2);
+      if (amplitude <= 0) {
+        context.beginPath();
+        context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        context.stroke();
+        return;
+      }
+      const steps = 180;
       context.beginPath();
-      context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      for (let step = 0; step <= steps; step += 1) {
+        const theta = step / steps * Math.PI * 2;
+        const distance = Math.max(0, radius + Math.sin(theta * waveCount + wavePhase) * amplitude);
+        const x = centerX + Math.cos(theta) * distance;
+        const y = centerY + Math.sin(theta) * distance;
+        if (step === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.closePath();
       context.stroke();
-      continue;
-    }
-    const steps = 180;
-    context.beginPath();
-    for (let step = 0; step <= steps; step += 1) {
-      const theta = step / steps * Math.PI * 2;
-      const distance = Math.max(0, radius + Math.sin(theta * waveCount + wavePhase) * amplitude);
-      const x = centerX + Math.cos(theta) * distance;
-      const y = centerY + Math.sin(theta) * distance;
-      if (step === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    }
-    context.closePath();
-    context.stroke();
+    };
+    MotionPattern.paintEmboss(context, { ...emboss, base: stroke }, () => ring(0), (depth) => ring(depth));
   }
 }
 
@@ -146,20 +179,26 @@ function renderWaveLines(width, height, travel, colors) {
   const waveCount = Number(elements.waveCount.value);
   const wavePhase = MotionPattern.frac(travel) * Math.PI * 2;
   const lineShift = Number(elements.lineShift.value) / 100 * Math.PI * 2;
-  context.lineWidth = period * Number(elements.duty.value) / 100;
+  const lineWidth = period * Number(elements.duty.value) / 100;
+  const emboss = embossOptions(lineWidth);
   context.lineCap = "butt";
   const steps = 96;
   for (let index = 0; index < count; index += 1) {
     const base = (index + 0.5) * period;
-    context.strokeStyle = colorFor(index, colors);
-    context.beginPath();
-    for (let step = 0; step <= steps; step += 1) {
-      const position = step / steps;
-      const y = base + Math.sin(position * waveCount * Math.PI * 2 + wavePhase + index * lineShift) * amplitude;
-      if (step === 0) context.moveTo(0, y);
-      else context.lineTo(position * width, y);
-    }
-    context.stroke();
+    const stroke = colorFor(index, colors);
+    context.strokeStyle = stroke;
+    const line = (lineInset) => {
+      context.lineWidth = Math.max(0.2, lineWidth - lineInset * 2);
+      context.beginPath();
+      for (let step = 0; step <= steps; step += 1) {
+        const position = step / steps;
+        const y = base + Math.sin(position * waveCount * Math.PI * 2 + wavePhase + index * lineShift) * amplitude;
+        if (step === 0) context.moveTo(0, y);
+        else context.lineTo(position * width, y);
+      }
+      context.stroke();
+    };
+    MotionPattern.paintEmboss(context, { ...emboss, base: stroke }, () => line(0), (depth) => line(depth));
   }
 }
 
@@ -185,6 +224,9 @@ function updateLabels() {
   elements.countValue.value = elements.count.value;
   elements.dutyValue.value = `${elements.duty.value}%`;
   elements.angleValue.value = `${elements.angle.value}°`;
+  elements.embossValue.value = `${elements.emboss.value}%`;
+  elements.embossAngleValue.value = `${elements.embossAngle.value}°（${MotionPattern.lightDirectionName(elements.embossAngle.value)}）`;
+  elements.embossAngle.disabled = Number(elements.emboss.value) === 0;
   elements.amplitudeValue.value = `${elements.amplitude.value} px`;
   elements.waveCountValue.value = elements.waveCount.value;
   elements.lineShiftValue.value = `${elements.lineShift.value}%`;
@@ -215,7 +257,7 @@ function refresh() {
   render();
 }
 
-[elements.count, elements.duty, elements.angle, elements.amplitude, elements.waveCount, elements.lineShift, elements.cycles, elements.duration].forEach((control) => control.addEventListener("input", refresh));
+[elements.count, elements.duty, elements.angle, elements.emboss, elements.embossAngle, elements.amplitude, elements.waveCount, elements.lineShift, elements.cycles, elements.duration].forEach((control) => control.addEventListener("input", refresh));
 [elements.colorCount, elements.arrangement, elements.direction].forEach((control) => control.addEventListener("change", refresh));
 [elements.backgroundColor, ...colorInputs].forEach((control) => control.addEventListener("input", refresh));
 elements.patternButtons.forEach((button) => button.addEventListener("click", () => { state.pattern = button.dataset.pattern; refresh(); }));
