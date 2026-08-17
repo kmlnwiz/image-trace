@@ -11,6 +11,8 @@ const elements = {
   shape: document.querySelector("#shape"),
   cornerRadius: document.querySelector("#cornerRadius"), cornerRadiusValue: document.querySelector("#cornerRadiusValue"), cornerRadiusControl: document.querySelector("#cornerRadiusControl"),
   thickness: document.querySelector("#thickness"), thicknessValue: document.querySelector("#thicknessValue"), thicknessControl: document.querySelector("#thicknessControl"),
+  fillMode: document.querySelector("#fillMode"), fillModeControl: document.querySelector("#fillModeControl"),
+  outlineColor: document.querySelector("#outlineColor"), outlineColorControl: document.querySelector("#outlineColorControl"),
   tilt: document.querySelector("#tilt"), tiltValue: document.querySelector("#tiltValue"),
   emboss: document.querySelector("#emboss"), embossValue: document.querySelector("#embossValue"),
   embossAngle: document.querySelector("#embossAngle"), embossAngleValue: document.querySelector("#embossAngleValue"),
@@ -33,7 +35,7 @@ const context = elements.canvas.getContext("2d");
 const state = { layout: "square", seed: 20260814, cells: [] };
 let player = null;
 
-const SETTING_CONTROLS = ["columns", "rows", "cellSize", "shape", "cornerRadius", "thickness", "tilt", "emboss", "embossAngle", "backgroundColor", "shapeColor", "shapeColorAlt", "waveMode", "waveShape", "waveAngle", "wavelength", "cycles", "jitter", "duration", "sizeMin", "opacityMin", "rotationAmount", "previewSpeed", "imageTime", "outputSize"];
+const SETTING_CONTROLS = ["columns", "rows", "cellSize", "shape", "fillMode", "cornerRadius", "thickness", "tilt", "emboss", "embossAngle", "backgroundColor", "shapeColor", "outlineColor", "shapeColorAlt", "waveMode", "waveShape", "waveAngle", "wavelength", "cycles", "jitter", "duration", "sizeMin", "opacityMin", "rotationAmount", "previewSpeed", "imageTime", "outputSize"];
 const SETTING_CHECKS = ["linkSize", "linkOpacity", "linkRotation", "linkColor"];
 
 function saveSettings() {
@@ -74,16 +76,31 @@ function rebuildCells() {
   state.cells = cells;
 }
 
-function shapeFill(size, weight, shape) {
+// `outlined` hollows the solid shapes: the outline is drawn inside the shape's
+// own bounds, so the cell keeps its size and the background shows through.
+function shapeFill(size, weight, shape, outlined) {
   const half = size / 2;
   if (shape === "circle") {
+    const radius = outlined ? Math.max(0.2, half - weight / 2) : half;
     context.beginPath();
-    context.arc(0, 0, half, 0, Math.PI * 2);
+    context.arc(0, 0, radius, 0, Math.PI * 2);
+    if (outlined) {
+      context.lineWidth = weight;
+      context.stroke();
+      return;
+    }
     context.fill();
     return;
   }
   if (shape === "square") {
-    MotionToolkit.roundedRectPath(context, -half, -half, size, size, size * Number(elements.cornerRadius.value) / 100);
+    const inset = outlined ? Math.min(weight / 2, half - 0.1) : 0;
+    const side = size - inset * 2;
+    MotionToolkit.roundedRectPath(context, -side / 2, -side / 2, side, side, side * Number(elements.cornerRadius.value) / 100);
+    if (outlined) {
+      context.lineWidth = weight;
+      context.stroke();
+      return;
+    }
     context.fill();
     return;
   }
@@ -104,12 +121,20 @@ function shapeFill(size, weight, shape) {
     context.fillRect(-half, -weight / 2, size, weight);
     return;
   }
+  // The diamond's edges run at 45°, so the outline has to pull the tips in by
+  // more than half the line weight to stay inside the shape.
+  const tip = outlined ? Math.max(0.2, half - weight * Math.SQRT1_2) : half;
   context.beginPath();
-  context.moveTo(0, -half);
-  context.lineTo(half, 0);
-  context.lineTo(0, half);
-  context.lineTo(-half, 0);
+  context.moveTo(0, -tip);
+  context.lineTo(tip, 0);
+  context.lineTo(0, tip);
+  context.lineTo(-tip, 0);
   context.closePath();
+  if (outlined) {
+    context.lineWidth = weight;
+    context.stroke();
+    return;
+  }
   context.fill();
 }
 
@@ -141,7 +166,12 @@ function render(playhead = player?.state.playhead || 0) {
   // their own line weight instead, or the lit face would eat the whole stroke.
   const embossRatio = Number(elements.emboss.value) / 100;
   const embossAngle = Number(elements.embossAngle.value);
-  const thinShape = ["ring", "cross", "line"].includes(shape);
+  const solidShape = ["circle", "square", "diamond"].includes(shape);
+  const fillMode = solidShape ? elements.fillMode.value : "fill";
+  const outlined = fillMode === "outline";
+  const bordered = fillMode === "both";
+  const outlineColor = elements.outlineColor.value;
+  const thinShape = outlined || ["ring", "cross", "line"].includes(shape);
 
   state.cells.forEach((cell) => {
     const field = MotionPattern.gridField(elements.waveMode.value, cell, elements.waveAngle.value);
@@ -164,9 +194,15 @@ function render(playhead = player?.state.playhead || 0) {
     MotionPattern.paintEmboss(
       context,
       { depth: relief, angle: embossAngle, strength: 0.25 + embossRatio * 0.35, base: color },
-      () => shapeFill(size, weight, shape),
-      (depth) => shapeFill(Math.max(0.2, size - depth * 2), Math.max(0.2, weight - depth * 2), shape),
+      () => shapeFill(size, weight, shape, outlined),
+      (depth) => shapeFill(Math.max(0.2, size - depth * 2), Math.max(0.2, weight - depth * 2), shape, outlined),
     );
+    // The border keeps its own color, so it is drawn flat over the relief.
+    if (bordered) {
+      context.fillStyle = outlineColor;
+      context.strokeStyle = outlineColor;
+      shapeFill(size, weight, shape, true);
+    }
     context.restore();
   });
 }
@@ -190,8 +226,12 @@ function updateLabels() {
   elements.sizeMinValue.value = `${elements.sizeMin.value}%`;
   elements.opacityMinValue.value = `${elements.opacityMin.value}%`;
   elements.rotationAmountValue.value = `${elements.rotationAmount.value}°`;
+  const solidShape = ["circle", "square", "diamond"].includes(elements.shape.value);
+  const fillMode = solidShape ? elements.fillMode.value : "fill";
   elements.cornerRadiusControl.hidden = elements.shape.value !== "square";
-  elements.thicknessControl.hidden = !["ring", "cross", "line"].includes(elements.shape.value);
+  elements.fillModeControl.hidden = !solidShape;
+  elements.outlineColorControl.hidden = fillMode !== "both";
+  elements.thicknessControl.hidden = solidShape ? fillMode === "fill" : false;
   elements.sizeMin.disabled = !elements.linkSize.checked;
   elements.opacityMin.disabled = !elements.linkOpacity.checked;
   elements.rotationAmount.disabled = !elements.linkRotation.checked;
@@ -220,8 +260,8 @@ function refresh({ rebuild = false } = {}) {
 
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => refresh({ rebuild: true })));
 [elements.cellSize, elements.cornerRadius, elements.thickness, elements.tilt, elements.emboss, elements.embossAngle, elements.waveAngle, elements.wavelength, elements.cycles, elements.jitter, elements.duration, elements.sizeMin, elements.opacityMin, elements.rotationAmount].forEach((control) => control.addEventListener("input", () => refresh()));
-[elements.shape, elements.waveMode, elements.waveShape].forEach((control) => control.addEventListener("change", () => refresh()));
-[elements.backgroundColor, elements.shapeColor, elements.shapeColorAlt, elements.linkSize, elements.linkOpacity, elements.linkRotation, elements.linkColor].forEach((control) => control.addEventListener("input", () => refresh()));
+[elements.shape, elements.fillMode, elements.waveMode, elements.waveShape].forEach((control) => control.addEventListener("change", () => refresh()));
+[elements.backgroundColor, elements.shapeColor, elements.outlineColor, elements.shapeColorAlt, elements.linkSize, elements.linkOpacity, elements.linkRotation, elements.linkColor].forEach((control) => control.addEventListener("input", () => refresh()));
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; refresh({ rebuild: true }); }));
 elements.seed.addEventListener("click", () => { state.seed = Date.now() % 2147483647; refresh({ rebuild: true }); player.showToast("ばらつきを変えました"); });
 elements.outputSize.addEventListener("change", () => { MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions); refresh(); });

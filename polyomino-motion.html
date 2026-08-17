@@ -40,7 +40,8 @@
 
         <section class="control-section">
           <div class="section-heading"><h2>見た目</h2></div>
-          <div class="field-row select-row"><label for="palette">配色</label><select id="palette"><option value="warm" selected>ウォーム</option><option value="ocean">オーシャン</option><option value="candy">キャンディ</option><option value="mono">モノクロ</option></select></div>
+          <div class="field-row select-row"><label for="palette">配色</label><select id="palette"><option value="warm" selected>ウォーム</option><option value="ocean">オーシャン</option><option value="candy">キャンディ</option><option value="mono">モノクロ</option><option value="forest">フォレスト</option><option value="sunset">サンセット</option><option value="berry">ベリー</option><option value="citrus">シトラス</option><option value="slate">スレート</option><option value="sand">サンド</option><option value="sakura">サクラ</option><option value="neon">ネオン</option><option value="night">ナイト</option><option value="earth">アース</option></select></div>
+          <div class="field-row select-row"><label for="colorOrder">色の並び</label><select id="colorOrder"><option value="random" selected>ランダム</option><option value="gradient">完成位置のグラデーション</option></select></div>
           <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
           <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
           <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#172128" /><output>#172128</output></span></div>
@@ -81,8 +82,8 @@
         </section>
 
         <section class="control-section export-section">
-          <div class="section-heading"><h2>出力</h2><span class="format-badge">WebM・MP4 / PNG</span></div>
-          <dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option><option value="1920x1080">1920 × 1080</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div><div><dt>形式</dt><dd><select id="outputFormat" class="output-size-select" aria-label="出力形式"><option value="webm" selected>WebM</option><option value="mp4">MP4</option></select></dd></div></dl>
+          <div class="section-heading"><h2>出力</h2><span class="format-badge">MP4・WebM / PNG</span></div>
+          <dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option><option value="1920x1080">1920 × 1080</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div><div><dt>形式</dt><dd><select id="outputFormat" class="output-size-select" aria-label="出力形式"><option value="mp4" selected>MP4</option><option value="webm">WebM</option></select></dd></div></dl>
           <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">3.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="6" step="0.1" value="3" />
           <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
         </section>

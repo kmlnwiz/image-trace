@@ -10,6 +10,16 @@ const PALETTES = {
   ocean: ["#91b9df", "#8fcbdc", "#92d8cd", "#b8e1c1"],
   candy: ["#efa5c6", "#d3addd", "#b7bce4", "#9bd8d1"],
   mono: ["#aeb7bc", "#c1c8cc", "#d2d7da", "#e1e5e7"],
+  forest: ["#7fa981", "#9cbd82", "#bcd191", "#d9e2ac"],
+  sunset: ["#f08a7c", "#f0a191", "#dfa0b2", "#b79ac8"],
+  berry: ["#c98098", "#d894ac", "#b78ec4", "#8f8dc6"],
+  citrus: ["#f2d072", "#e9c05f", "#c8cc6c", "#a4c98a"],
+  slate: ["#8fa3b4", "#a5b6c3", "#b9c6cf", "#ccd5db"],
+  sand: ["#d8b892", "#e2c8a5", "#e8d6ba", "#efe4d2"],
+  sakura: ["#f2b8c6", "#f6c9d4", "#f0d3d8", "#e8dde4"],
+  neon: ["#5fd0d8", "#7ad3a8", "#e8d566", "#f0908f"],
+  night: ["#4d5f78", "#5f7590", "#7c8fa8", "#9aa9bd"],
+  earth: ["#b08968", "#c19a76", "#a9a380", "#93a58c"],
 };
 
 const elements = {
@@ -24,6 +34,7 @@ const elements = {
   minoSummary: document.querySelector("#minoSummary"),
   shuffle: document.querySelector("#shuffleButton"),
   palette: document.querySelector("#palette"),
+  colorOrder: document.querySelector("#colorOrder"),
   fontStyle: document.querySelector("#fontStyle"),
   fontFile: document.querySelector("#fontFile"),
   fontFileName: document.querySelector("#fontFileName"),
@@ -161,6 +172,7 @@ function saveSettings() {
     minoSize: elements.minoSize.value,
     seed: state.seed,
     palette: elements.palette.value,
+    colorOrder: elements.colorOrder?.value,
     fontStyle: elements.fontStyle.value,
     localFontName: state.localFontName,
     textColor: elements.textColor.value,
@@ -183,7 +195,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(POLYOMINO_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["gridColumns", "gridRows", "palette", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
+  ["gridColumns", "gridRows", "palette", "colorOrder", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
   if (Number.isFinite(Number(settings.startInterval))) {
     MotionStorage.restoreControl(elements.stagger, settings.startInterval);
@@ -607,14 +619,25 @@ function mixHexColor(from, to, amount) {
   return `#${channel(read(from, 1), read(to, 1))}${channel(read(from, 3), read(to, 3))}${channel(read(from, 5), read(to, 5))}`;
 }
 
+// A color that follows the finished position gives the answer away: every mino
+// can be read off the grid before it moves. The random order keeps the palette
+// but ties the tint to the seed instead, so the color says nothing about where
+// a cell belongs.
+function cellPosition(cell, span) {
+  if (elements.colorOrder?.value === "gradient") {
+    const { columns, rows } = dimensions();
+    const column = cell % columns;
+    const row = Math.floor(cell / columns);
+    const horizontal = column / Math.max(1, columns - 1);
+    const vertical = row / Math.max(1, rows - 1);
+    return (horizontal + vertical) / 2 * span;
+  }
+  return MotionToolkit.seededRandom(state.seed + cell * 7919 + 13)() * span;
+}
+
 function cellColor(cell) {
   const colors = PALETTES[elements.palette.value] || PALETTES.warm;
-  const { columns, rows } = dimensions();
-  const column = cell % columns;
-  const row = Math.floor(cell / columns);
-  const horizontal = column / Math.max(1, columns - 1);
-  const vertical = row / Math.max(1, rows - 1);
-  const position = (horizontal + vertical) / 2 * (colors.length - 1);
+  const position = cellPosition(cell, colors.length - 1);
   const start = Math.min(colors.length - 1, Math.floor(position));
   const end = Math.min(colors.length - 1, start + 1);
   return mixHexColor(colors[start], colors[end], position - start);
@@ -845,7 +868,7 @@ elements.shuffle.addEventListener("click", () => {
   }));
 elements.orderAllButton.addEventListener("click", () => orderPicker.selectAll());
 elements.orderClearButton.addEventListener("click", () => orderPicker.clear());
-elements.palette.addEventListener("change", () => { renderFixedPiecePicker(); saveSettings(); updateLabels(); render(); });
+[elements.palette, elements.colorOrder].filter(Boolean).forEach((control) => control.addEventListener("change", () => { renderFixedPiecePicker(); saveSettings(); updateLabels(); render(); }));
 elements.fontStyle.addEventListener("change", async () => {
   if (elements.fontStyle.value !== state.lastFontStyle) await clearLocalFont(false);
   state.lastFontStyle = elements.fontStyle.value;

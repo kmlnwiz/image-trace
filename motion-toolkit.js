@@ -643,7 +643,7 @@
     } catch {
       // The tools remain usable when storage is unavailable.
     }
-    return "webm";
+    return "mp4";
   }
 
   function rememberExportFormat(value) {

@@ -48,11 +48,11 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 ### 動画書き出し（renderWebm）
 
-`MotionToolkit.renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond, format })` が全ツール共通の書き出しエンジンで、`Promise<Blob>` を返す。`format` は `"webm"`（既定）か `"mp4"`。`createPlayer` を使うツールはプレイヤー経由で、使わないツール（Outline / Kanji Writer / Random Kanji / Dial Type / Text Reel）は自分の `exportVideo` から直接呼ぶ。ダウンロードは `MotionToolkit.downloadBlob(blob, fileName)`。
+`MotionToolkit.renderWebm({ canvas, totalFrames, render, onProgress, videoBitsPerSecond, format })` が全ツール共通の書き出しエンジンで、`Promise<Blob>` を返す。`format` は `"webm"` か `"mp4"`（`MotionToolkit.exportFormat()` の既定は `"mp4"`）。`createPlayer` を使うツールはプレイヤー経由で、使わないツール（Outline / Kanji Writer / Random Kanji / Dial Type / Text Reel）は自分の `exportVideo` から直接呼ぶ。ダウンロードは `MotionToolkit.downloadBlob(blob, fileName)`。
 
 第一経路は **WebCodecs の `VideoEncoder` + 自前のマルチプレクサ**。WebM は VP9 → VP8 で `buildWebmBlob`（EBML を手書き）、MP4 は H.264（high → main → baseline、`avc: { format: "avc" }`）で `buildMp4Blob`（ISO BMFF を手書き、`moov` を `mdat` の前に置く）。エンコーダが返す `metadata.decoderConfig.description` がそのまま `avcC` になる。**MP4 を選んでも H.264 が使えない環境では WebM へ自動フォールバックし、返る Blob の `type` で実際の形式が分かる。**
 
-出力形式は `#outputFormat`（`<select>`、値は `webm` / `mp4`）で選ぶ。ツール固有の設定ではなく `motion-lab:export-format:v1` に全ツール共通で保存するので、各ツールの `saveSettings` へ足す必要はない。`MotionToolkit.exportFormat()` が選択値または保存値を返す。`createPlayer` を使わないツールはこれを呼んで `format` に渡し、返った Blob の `type` から拡張子を決める。各フレームのタイムスタンプは経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決まるので、1 枚の描画が 1/60 秒を超えても尺が伸びず、コマ落ちもしない — 遅い分だけ書き出し時間が延びるだけになる。キーフレームは 1 秒ごとで、クラスタもそこで切って Cues を張る。フレーム間の待ちは `setTimeout` ではなく `MessageChannel`（非表示タブでも 1 秒クランプを受けない）。
+出力形式は `#outputFormat`（`<select>`、値は `webm` / `mp4`、既定は `mp4`）で選ぶ。ツール固有の設定ではなく `motion-lab:export-format:v1` に全ツール共通で保存するので、各ツールの `saveSettings` へ足す必要はない。`MotionToolkit.exportFormat()` が選択値または保存値を返す。`createPlayer` を使わないツールはこれを呼んで `format` に渡し、返った Blob の `type` から拡張子を決める。各フレームのタイムスタンプは経過時間ではなく**フレーム番号**（`round(duration × 60)` 枚）から決まるので、1 枚の描画が 1/60 秒を超えても尺が伸びず、コマ落ちもしない — 遅い分だけ書き出し時間が延びるだけになる。キーフレームは 1 秒ごとで、クラスタもそこで切って Cues を張る。フレーム間の待ちは `setTimeout` ではなく `MessageChannel`（非表示タブでも 1 秒クランプを受けない）。
 
 `VideoEncoder` が無い環境では `canvas.captureStream(0)` + `requestFrame()` + `MediaRecorder` の旧経路に自動フォールバックする（さらに `requestFrame` 非対応なら `captureStream(60)` の自動サンプリング）。旧経路は `MediaRecorder` が実時間でタイムスタンプを打つため、描画が重いとカクつく点に注意。
 
