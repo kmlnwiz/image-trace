@@ -40,8 +40,8 @@ const SETTING_CHECKS = ["linkSize", "linkOpacity", "linkRotation", "linkColor"];
 
 function saveSettings() {
   const settings = { layout: state.layout, seed: state.seed };
-  SETTING_CONTROLS.forEach((name) => { settings[name] = elements[name].value; });
-  SETTING_CHECKS.forEach((name) => { settings[name] = elements[name].checked; });
+  SETTING_CONTROLS.forEach((name) => { settings[name] = elements[name]?.value; });
+  SETTING_CHECKS.forEach((name) => { settings[name] = elements[name]?.checked; });
   MotionStorage.write(GRID_PULSE_SETTINGS_KEY, settings);
 }
 
@@ -50,8 +50,8 @@ function restoreSettings() {
   if (!settings || typeof settings !== "object") return;
   if (["square", "stagger", "diagonal"].includes(settings.layout)) state.layout = settings.layout;
   if (Number.isFinite(Number(settings.seed))) state.seed = Number(settings.seed);
-  SETTING_CONTROLS.forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
-  SETTING_CHECKS.forEach((name) => { if (typeof settings[name] === "boolean") elements[name].checked = settings[name]; });
+  SETTING_CONTROLS.forEach((name) => { if (elements[name]) MotionStorage.restoreControl(elements[name], settings[name]); });
+  SETTING_CHECKS.forEach((name) => { if (elements[name] && typeof settings[name] === "boolean") elements[name].checked = settings[name]; });
 }
 
 // Staggered and diagonal lattices push cells past the canvas edge, so a spare
@@ -167,10 +167,10 @@ function render(playhead = player?.state.playhead || 0) {
   const embossRatio = Number(elements.emboss.value) / 100;
   const embossAngle = Number(elements.embossAngle.value);
   const solidShape = ["circle", "square", "diamond"].includes(shape);
-  const fillMode = solidShape ? elements.fillMode.value : "fill";
+  const fillMode = solidShape ? elements.fillMode?.value || "fill" : "fill";
   const outlined = fillMode === "outline";
   const bordered = fillMode === "both";
-  const outlineColor = elements.outlineColor.value;
+  const outlineColor = elements.outlineColor?.value || elements.shapeColor.value;
   const thinShape = outlined || ["ring", "cross", "line"].includes(shape);
 
   state.cells.forEach((cell) => {
@@ -227,10 +227,10 @@ function updateLabels() {
   elements.opacityMinValue.value = `${elements.opacityMin.value}%`;
   elements.rotationAmountValue.value = `${elements.rotationAmount.value}°`;
   const solidShape = ["circle", "square", "diamond"].includes(elements.shape.value);
-  const fillMode = solidShape ? elements.fillMode.value : "fill";
+  const fillMode = solidShape ? elements.fillMode?.value || "fill" : "fill";
   elements.cornerRadiusControl.hidden = elements.shape.value !== "square";
-  elements.fillModeControl.hidden = !solidShape;
-  elements.outlineColorControl.hidden = fillMode !== "both";
+  if (elements.fillModeControl) elements.fillModeControl.hidden = !solidShape;
+  if (elements.outlineColorControl) elements.outlineColorControl.hidden = fillMode !== "both";
   elements.thicknessControl.hidden = solidShape ? fillMode === "fill" : false;
   elements.sizeMin.disabled = !elements.linkSize.checked;
   elements.opacityMin.disabled = !elements.linkOpacity.checked;
@@ -260,8 +260,8 @@ function refresh({ rebuild = false } = {}) {
 
 [elements.columns, elements.rows].forEach((control) => control.addEventListener("input", () => refresh({ rebuild: true })));
 [elements.cellSize, elements.cornerRadius, elements.thickness, elements.tilt, elements.emboss, elements.embossAngle, elements.waveAngle, elements.wavelength, elements.cycles, elements.jitter, elements.duration, elements.sizeMin, elements.opacityMin, elements.rotationAmount].forEach((control) => control.addEventListener("input", () => refresh()));
-[elements.shape, elements.fillMode, elements.waveMode, elements.waveShape].forEach((control) => control.addEventListener("change", () => refresh()));
-[elements.backgroundColor, elements.shapeColor, elements.outlineColor, elements.shapeColorAlt, elements.linkSize, elements.linkOpacity, elements.linkRotation, elements.linkColor].forEach((control) => control.addEventListener("input", () => refresh()));
+[elements.shape, elements.fillMode, elements.waveMode, elements.waveShape].filter(Boolean).forEach((control) => control.addEventListener("change", () => refresh()));
+[elements.backgroundColor, elements.shapeColor, elements.outlineColor, elements.shapeColorAlt, elements.linkSize, elements.linkOpacity, elements.linkRotation, elements.linkColor].filter(Boolean).forEach((control) => control.addEventListener("input", () => refresh()));
 elements.layoutButtons.forEach((button) => button.addEventListener("click", () => { state.layout = button.dataset.layout; refresh({ rebuild: true }); }));
 elements.seed.addEventListener("click", () => { state.seed = Date.now() % 2147483647; refresh({ rebuild: true }); player.showToast("ばらつきを変えました"); });
 elements.outputSize.addEventListener("change", () => { MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions); refresh(); });

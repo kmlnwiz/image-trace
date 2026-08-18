@@ -196,7 +196,7 @@ function restoreSettings() {
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
   ["gridColumns", "gridRows", "palette", "colorOrder", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
-    .forEach((name) => MotionStorage.restoreControl(elements[name], settings[name]));
+    .forEach((name) => { if (elements[name]) MotionStorage.restoreControl(elements[name], settings[name]); });
   if (Number.isFinite(Number(settings.startInterval))) {
     MotionStorage.restoreControl(elements.stagger, settings.startInterval);
   } else if (Number.isFinite(Number(settings.stagger))) {
@@ -623,7 +623,7 @@ function mixHexColor(from, to, amount) {
 // can be read off the grid before it moves. The random order keeps the palette
 // but ties the tint to the seed instead, so the color says nothing about where
 // a cell belongs.
-function cellPosition(cell, span) {
+function paletteStop(cell, span) {
   if (elements.colorOrder?.value === "gradient") {
     const { columns, rows } = dimensions();
     const column = cell % columns;
@@ -637,7 +637,7 @@ function cellPosition(cell, span) {
 
 function cellColor(cell) {
   const colors = PALETTES[elements.palette.value] || PALETTES.warm;
-  const position = cellPosition(cell, colors.length - 1);
+  const position = paletteStop(cell, colors.length - 1);
   const start = Math.min(colors.length - 1, Math.floor(position));
   const end = Math.min(colors.length - 1, start + 1);
   return mixHexColor(colors[start], colors[end], position - start);
