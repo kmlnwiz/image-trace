@@ -23,7 +23,8 @@
 
         <section class="control-section">
           <div class="section-heading"><h2>グリッド</h2><output id="gridArea" class="meta-value">25 マス</output></div>
-          <div class="grid-size-controls">
+          <div class="field-row select-row board-type-row"><label for="gridType">セルと盤面</label><select id="gridType"><option value="rectangle" selected>□ 四角・長方形</option><option value="triangleHex">△ 三角・六角形</option></select></div>
+          <div id="rectangleGridControls" class="grid-size-controls">
             <label for="gridColumns"><span>横</span><select id="gridColumns" aria-label="横のグリッド数">
               <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
             </select></label>
@@ -32,9 +33,10 @@
               <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
             </select></label>
           </div>
-          <div class="field-row select-row mino-size-row"><label for="minoSize">1ミノのマス数</label><select id="minoSize"><option value="5" selected>5 マス / 5 ミノ</option></select></div>
-          <p class="field-hint">盤面を割り切れるマス数だけ選べます。各ミノは辺でつながった同じマス数の形です。</p>
-          <div id="minoSummary" class="mino-summary"><span><b>5</b> マス / ミノ</span><span><b>5</b> ミノ</span><span><b>25</b> マス</span></div>
+          <div id="triangleGridControls" class="field-row select-row triangle-grid-controls" hidden><label for="hexSide">一辺の△数</label><select id="hexSide" aria-label="六角形の一辺に並べる三角セルの数"><option value="1">1（全6 △）</option><option value="2">2（全24 △）</option><option value="3" selected>3（全54 △）</option><option value="4">4（全96 △）</option><option value="5">5（全150 △）</option><option value="6">6（全216 △）</option></select></div>
+          <div class="field-row select-row mino-size-row"><label for="minoSize">1ミノのセル数</label><select id="minoSize"><option value="5" selected>5 セル / 5 ミノ</option></select></div>
+          <p id="gridHint" class="field-hint">盤面を割り切れるセル数だけ選べます。各ミノは辺でつながった同じセル数の形です。</p>
+          <div id="minoSummary" class="mino-summary"><span><b>5</b> セル / ミノ</span><span><b>5</b> ミノ</span><span><b>25</b> セル</span></div>
           <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>形と初期配置を再抽選</button>
         </section>
 
@@ -74,7 +76,7 @@
 
         <section class="control-section">
           <div class="section-heading"><h2>初期配置</h2><output id="fixedPieceCount" class="meta-value">0 / 5 固定</output></div>
-          <div class="placement-note"><span aria-hidden="true">↻</span><div><strong>90°単位でランダム回転</strong><small>ミノ同士と完成グリッドを重ねず、空いている側へ整列します。</small></div></div>
+          <div class="placement-note"><span aria-hidden="true">↻</span><div><strong id="rotationNote">90°単位でランダム回転</strong><small>ミノ同士と完成グリッドを重ねず、空いている側へ整列します。</small></div></div>
           <div id="fixedPiecePicker" class="fixed-piece-picker" aria-label="最初から確定させるミノ"></div>
           <div class="fixed-piece-actions"><button id="clearFixedPiecesButton" class="button button-secondary" type="button">すべて動かす</button><button id="selectAllFixedPiecesButton" class="button button-secondary" type="button">すべて固定</button></div>
           <p class="field-hint">ミノを選ぶと、開始時から完成位置に固定されます。</p>

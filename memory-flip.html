@@ -10,64 +10,70 @@
   </head>
   <body class="tool-page typography-tools memory-flip" data-tool-key="memory-flip">
     <header class="app-header tool-header">
-      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">神</span><div><h1>Memory Flip</h1><p>神経衰弱のようにめくって揃える</p></div></a>
+      <a class="brand-block tool-brand" href="./index.html" aria-label="ホームへ戻る"><span class="brand-mark tool-mark" aria-hidden="true">神</span><div><h1>Memory Flip</h1><p>同じ文字を揃えて、ペアを集める</p></div></a>
     </header>
 
     <main class="workspace tool-workspace tool-shell">
-      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="文字とパネルの設定">
+      <aside class="control-panel control-panel-left tool-sidebar tool-sidebar-left" aria-label="残す文字とカードの設定">
         <section class="control-section">
-          <div class="section-heading"><h2>文字</h2><output id="characterCount" class="meta-value">10文字 → 8組</output></div>
-          <textarea id="textInput" class="text-area typography-input" rows="2" maxlength="64" spellcheck="false">あいうえおかきくけこ</textarea>
-          <p class="field-hint">1文字ずつに分けて、それぞれ2枚のパネルへ配ります。枚数が足りないときは先頭から繰り返します。</p>
-          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>配置とめくり方を再抽選</button>
+          <div class="section-heading"><h2>残す文字</h2><output id="characterCount" class="meta-value">4文字</output></div>
+          <textarea id="textInput" class="text-area typography-input" rows="2" maxlength="28" spellcheck="false">神経衰弱</textarea>
+          <p class="field-hint">最後まで盤面に残す文字を指定します。空白を除いて最大14文字です。</p>
+          <label class="field-row" for="dummyText"><span>ダミーの文字列</span><output id="dummyCharacterCount">12文字</output></label>
+          <textarea id="dummyText" class="text-area typography-input" rows="2" maxlength="28" spellcheck="false">春夏秋冬東西南北天地山川</textarea>
+          <p class="field-hint">入力した文字からダミーのペアを作ります。重複、空白、残す文字と同じ文字は除外します。</p>
+          <label class="field-row" for="dummyPairCount"><span>ダミーのペア数</span><output id="dummyPairCountValue">5 組 / 10枚</output></label><input id="dummyPairCount" class="range" type="range" min="0" max="5" step="1" value="5" />
+          <p id="dummyLimitHint" class="field-hint">残す文字と合わせて最大14枚になるよう自動制限します。</p>
+          <button id="shuffleButton" class="button button-accent" type="button"><span aria-hidden="true">↝</span>配置・ダミー・ペア順を再抽選</button>
         </section>
 
         <section class="control-section">
-          <div class="section-heading"><h2>盤面</h2><output id="boardSummary" class="meta-value">4 × 4 · 8組</output></div>
-          <label class="field-row" for="gridColumns"><span>横</span><output id="gridColumnsValue">4 枚</output></label><input id="gridColumns" class="range" type="range" min="2" max="8" step="1" value="4" />
-          <label class="field-row" for="gridRows"><span>縦</span><output id="gridRowsValue">4 枚</output></label><input id="gridRows" class="range" type="range" min="1" max="4" step="1" value="4" />
-          <p class="field-hint">最大は8×4です。枚数が奇数になる組み合わせでは、末尾の1枚を使いません。</p>
+          <div class="section-heading"><h2>盤面</h2><output id="boardSummary" class="meta-value">2行 × 7列 · 14枚</output></div>
+          <p class="field-hint">カード数に合わせて2行に均等配置します。1行は最大7列です。</p>
         </section>
 
         <section class="control-section">
-          <div class="section-heading"><h2>パネル</h2></div>
-          <div class="field-row select-row"><label for="backMode">裏面</label><select id="backMode"><option value="question" selected>？を表示</option><option value="blank">無地</option></select></div>
+          <div class="section-heading"><h2>カード</h2></div>
           <label class="field-row" for="panelGap"><span>間隔</span><output id="panelGapValue">12 px</output></label><input id="panelGap" class="range" type="range" min="0" max="36" step="1" value="12" />
           <label class="field-row" for="cornerRadius"><span>角丸</span><output id="cornerRadiusValue">0 px</output></label><input id="cornerRadius" class="range" type="range" min="0" max="28" step="1" value="0" />
           <div class="field-row select-row"><label for="fontStyle">書体</label><select id="fontStyle"><option value="sans" selected>ゴシック</option><option value="serif">明朝</option><option value="mono">等幅</option></select></div>
           <div class="local-font-row"><label class="button button-secondary" for="fontFile">フォントを選択</label><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden /><span id="fontFileName">端末内のフォント</span><button id="fontClearButton" class="text-button" type="button" hidden>解除</button></div>
-          <label class="field-row" for="fontSize"><span>文字サイズ</span><output id="fontSizeValue">72 px</output></label><input id="fontSize" class="range" type="range" min="24" max="150" step="2" value="72" />
-          <div class="field-row color-row"><label for="panelColor">パネル</label><span class="color-control"><input id="panelColor" type="color" value="#f2ede3" /><output>#F2EDE3</output></span></div>
+          <div class="field-row color-row"><label for="panelColor">表面</label><span class="color-control"><input id="panelColor" type="color" value="#f2ede3" /><output>#F2EDE3</output></span></div>
           <div class="field-row color-row"><label for="textColor">文字</label><span class="color-control"><input id="textColor" type="color" value="#17242b" /><output>#17242B</output></span></div>
-          <div class="field-row color-row"><label for="settledColor">確定</label><span class="color-control"><input id="settledColor" type="color" value="#E0041D" /><output>#E0041D</output></span></div>
-          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#FFFFFF" /><output>#FFFFFF</output></span></div>
+          <div class="field-row color-row"><label for="backColor">裏面</label><span class="color-control"><input id="backColor" type="color" value="#929795" /><output>#929795</output></span></div>
+          <div class="field-row color-row"><label for="patternColor">裏面の柄</label><span class="color-control"><input id="patternColor" type="color" value="#C9CDCA" /><output>#C9CDCA</output></span></div>
+          <div class="field-row color-row"><label for="settledColor">ペア</label><span class="color-control"><input id="settledColor" type="color" value="#D83131" /><output>#D83131</output></span></div>
+          <div class="field-row color-row"><label for="backgroundColor">背景</label><span class="color-control"><input id="backgroundColor" type="color" value="#005c4b" /><output>#005C4B</output></span></div>
         </section>
       </aside>
 
-      <section class="stage-panel tool-stage" aria-label="神経衰弱プレビュー">
-        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 8 組 確定</span></div>
-        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="パネルがめくられ、同じ文字が揃うと確定していくアニメーション"></canvas></div>
-        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:12.0</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      <section class="stage-panel tool-stage" aria-label="ペア回収アニメーションのプレビュー">
+        <div class="stage-toolbar"><div><strong>プレビュー</strong><span id="stageDimensions">16:10 · 1600 × 1000</span></div><span id="stageStatus" class="stage-status">0 / 14枚を配布</span></div>
+        <div class="canvas-shell"><canvas id="previewCanvas" width="1600" height="1000" aria-label="左中央の白枠からカードを列ごとに配り、ランダムにめくって戻し、揃ったペアを白枠へ集めるアニメーション"></canvas></div>
+        <div class="transport"><button id="restartButton" class="icon-button transport-button" type="button" aria-label="先頭に戻る">↺</button><button id="playButton" class="play-button" type="button" aria-label="再生">▶</button><div class="timeline-block"><input id="timeline" class="range timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><div class="time-labels"><input id="currentTime" class="time-input" type="text" inputmode="decimal" aria-label="再生位置（分:秒）" value="0:00.0" /><output id="totalTime">0:16.5</output></div></div><label class="speed-control" for="previewSpeed"><span>速度</span><select id="previewSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       </section>
 
-      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="めくり方と出力の設定">
+      <aside class="control-panel control-panel-right tool-sidebar tool-sidebar-right" aria-label="ペア成立と出力の設定">
         <section class="control-section">
-          <div class="section-heading"><h2>めくり方</h2><output id="requiredTime" class="meta-value">必要 12.0 秒</output></div>
-          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">12.0 秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="12" />
-          <label class="field-row" for="tickInterval"><span>めくる間隔</span><output id="tickIntervalValue">0.60 秒 / 36f</output></label><input id="tickInterval" class="range" type="range" min="0.1" max="5" step="0.05" value="0.6" />
-          <label class="field-row" for="flipDuration"><span>1枚の反転時間</span><output id="flipDurationValue">0.35 秒 / 21f</output></label><input id="flipDuration" class="range" type="range" min="0.1" max="3" step="0.05" value="0.35" />
-          <label class="field-row" for="openLimit"><span>同時に開く枚数</span><output id="openLimitValue">3 枚</output></label><input id="openLimit" class="range" type="range" min="1" max="8" step="1" value="3" />
-          <label class="field-row" for="matchChance"><span>そろう頻度</span><output id="matchChanceValue">38%</output></label><input id="matchChance" class="range" type="range" min="5" max="100" step="1" value="38" />
-          <label class="field-row" for="closeChance"><span>戻す頻度</span><output id="closeChanceValue">45%</output></label><input id="closeChance" class="range" type="range" min="0" max="100" step="1" value="45" />
-          <p class="field-hint">同じ文字が2枚同時に表になるのは、その組が揃った瞬間だけです。揃った組は以降めくられず、確定色で残ります。</p>
+          <div class="section-heading"><h2>めくり方</h2><output id="requiredTime" class="meta-value">必要 16.3 秒</output></div>
+          <label class="field-row" for="duration"><span>全体時間</span><output id="durationValue">16.5 秒</output></label><input id="duration" class="range" type="range" min="1" max="90" step="0.5" value="16.5" />
+          <label class="field-row" for="turnInterval"><span>1ターンの間隔</span><output id="turnIntervalValue">0.40 秒 / 24f</output></label><input id="turnInterval" class="range" type="range" min="0.15" max="5" step="0.05" value="0.4" />
+          <label class="field-row" for="openLimit"><span>同時にめくる枚数</span><output id="openLimitValue">3 枚</output></label><input id="openLimit" class="range" type="range" min="2" max="6" step="1" value="3" />
+          <label class="field-row" for="matchTurnInterval"><span>ペア成立</span><output id="matchTurnIntervalValue">4 ターンごと</output></label><input id="matchTurnInterval" class="range" type="range" min="1" max="12" step="1" value="4" />
+          <label class="field-row" for="matchPairCount"><span>揃えるペア数</span><output id="matchPairCountValue">5 組</output></label><input id="matchPairCount" class="range" type="range" min="0" max="5" step="1" value="5" />
+          <label class="field-row" for="revealTurn"><span>全表示ターン</span><output id="revealTurnValue">21 ターン目</output></label><input id="revealTurn" class="range" type="range" min="1" max="60" step="1" value="21" />
+          <label class="field-row" for="flipDuration"><span>反転時間</span><output id="flipDurationValue">0.35 秒 / 21f</output></label><input id="flipDuration" class="range" type="range" min="0.1" max="1.5" step="0.05" value="0.35" />
+          <label class="field-row" for="holdDuration"><span>揃い表示</span><output id="holdDurationValue">0.45 秒 / 27f</output></label><input id="holdDuration" class="range" type="range" min="0" max="5" step="0.05" value="0.45" />
+          <label class="field-row" for="removeDuration"><span>回収時間</span><output id="removeDurationValue">0.30 秒 / 18f</output></label><input id="removeDuration" class="range" type="range" min="0.1" max="1.5" step="0.05" value="0.3" />
+          <p class="field-hint">開いているカードを同時に戻し、次をめくるまでが1ターンです。指定数のペアを回収した後は通常のめくりだけを続け、指定ターン以降は残りをすべて表向きにします。</p>
           <div class="field-row select-row"><label for="easing">動き</label><select id="easing"><option value="easeInOut" selected>なめらか</option><option value="easeOut">ゆっくり停止</option><option value="linear">一定</option></select></div>
-          <button id="matchDurationButton" class="button button-secondary" type="button">全体時間を必要時間に合わせる</button>
+          <button id="matchDurationButton" class="button button-secondary match-duration-button" type="button">全体時間を必要時間に合わせる</button>
         </section>
 
         <section class="control-section export-section">
           <div class="section-heading"><h2>出力</h2><span class="format-badge">MP4・WebM / PNG</span></div>
           <dl class="export-summary"><div><dt>サイズ</dt><dd><select id="outputSize" class="output-size-select" aria-label="出力サイズ"><option value="800">800 × 800</option><option value="1600x900">1600 × 900</option><option value="1600x1000" selected>1600 × 1000</option><option value="1920x900">1920 × 900</option><option value="1920x1080">1920 × 1080</option></select></dd></div><div><dt>フレーム</dt><dd>60 fps</dd></div><div><dt>形式</dt><dd><select id="outputFormat" class="output-size-select" aria-label="出力形式"><option value="mp4" selected>MP4</option><option value="webm">WebM</option></select></dd></div></dl>
-          <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">6.0 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="12" step="0.1" value="6" />
+          <label class="field-row" for="imageTime"><span>画像の時刻</span><output id="imageTimeValue">8.5 秒</output></label><input id="imageTime" class="range" type="range" min="0" max="16.5" step="0.1" value="8.5" />
           <button id="imageExportButton" class="button button-secondary button-wide export-image-button" type="button"><span aria-hidden="true">▣</span>PNGを書き出す</button><button id="exportButton" class="button button-export button-wide" type="button"><span aria-hidden="true">↓</span>動画を書き出す</button><div id="exportProgress" class="export-progress" hidden><div id="exportProgressBar"></div></div>
         </section>
       </aside>

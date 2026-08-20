@@ -15,6 +15,12 @@ body.memory-flip {
   --tool-accent-soft: #f5e6f4;
 }
 
+.memory-flip .match-duration-button {
+  width: 100%;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+
 .typography-input {
   min-height: 104px;
   resize: vertical;

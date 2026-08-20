@@ -129,6 +129,23 @@ body.polyomino-motion {
   line-height: 1.45;
 }
 
+.board-type-row {
+  margin-bottom: 12px;
+}
+
+.triangle-grid-controls {
+  margin-bottom: 12px;
+}
+
+.triangle-grid-controls select {
+  max-width: 150px;
+}
+
+.polyomino-motion .grid-size-controls[hidden],
+.polyomino-motion .triangle-grid-controls[hidden] {
+  display: none;
+}
+
 .fixed-piece-picker {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -171,6 +188,13 @@ body.polyomino-motion {
 .fixed-piece-shape {
   display: grid;
   gap: 1px;
+}
+
+.fixed-piece-shape svg {
+  display: block;
+  width: 27px;
+  height: 27px;
+  overflow: visible;
 }
 
 .fixed-piece-shape i {

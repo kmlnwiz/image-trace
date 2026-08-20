@@ -4,7 +4,9 @@ const POLYOMINO_SETTINGS_KEY = "motion-lab:polyomino-motion-settings:v1";
 const FONT_ASSET_KEY = "polyomino-motion-local-font";
 const SETTLED_COLOR = "#e0041d";
 const FONT_SIZE_RATIO = 0.58;
+const TRIANGLE_FONT_SIZE_RATIO = 0.32;
 const INTERNAL_GRID_WIDTH = 2;
+const TRIANGLE_HEIGHT = Math.sqrt(3) / 2;
 const PALETTES = {
   warm: ["#ef918b", "#f3ad82", "#f5c97c", "#f1df93"],
   ocean: ["#91b9df", "#8fcbdc", "#92d8cd", "#b8e1c1"],
@@ -27,9 +29,14 @@ const elements = {
   textInput: document.querySelector("#textInput"),
   characterCount: document.querySelector("#characterCount"),
   textHint: document.querySelector("#textHint"),
+  gridType: document.querySelector("#gridType"),
+  rectangleGridControls: document.querySelector("#rectangleGridControls"),
+  triangleGridControls: document.querySelector("#triangleGridControls"),
   gridColumns: document.querySelector("#gridColumns"),
   gridRows: document.querySelector("#gridRows"),
+  hexSide: document.querySelector("#hexSide"),
   gridArea: document.querySelector("#gridArea"),
+  gridHint: document.querySelector("#gridHint"),
   minoSize: document.querySelector("#minoSize"),
   minoSummary: document.querySelector("#minoSummary"),
   shuffle: document.querySelector("#shuffleButton"),
@@ -64,6 +71,7 @@ const elements = {
   fixedPieceCount: document.querySelector("#fixedPieceCount"),
   clearFixedPieces: document.querySelector("#clearFixedPiecesButton"),
   selectAllFixedPieces: document.querySelector("#selectAllFixedPiecesButton"),
+  rotationNote: document.querySelector("#rotationNote"),
 };
 
 const context = elements.canvas.getContext("2d");
@@ -72,6 +80,7 @@ const state = {
   pieces: [],
   placements: [],
   packing: null,
+  board: null,
   localFontFamily: "",
   localFontName: "",
   lastFontStyle: elements.fontStyle.value,
@@ -151,9 +160,144 @@ function dimensions() {
   };
 }
 
-function boardArea() {
+function boardType() {
+  return elements.gridType.value === "triangleHex" ? "triangleHex" : "rectangle";
+}
+
+function vertexKey(vertex) {
+  return `${vertex.q},${vertex.r}`;
+}
+
+function edgeKey(first, second) {
+  const a = vertexKey(first);
+  const b = vertexKey(second);
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+function finishBoardModel(type, cells, metadata) {
+  const edgeOwners = new Map();
+  cells.forEach((cell, cellIndex) => {
+    cell.neighbors = new Array(cell.vertices.length).fill(null);
+    cell.edgeKeys = cell.latticeVertices.map((vertex, edgeIndex) => edgeKey(vertex, cell.latticeVertices[(edgeIndex + 1) % cell.latticeVertices.length]));
+    cell.edgeKeys.forEach((key, edgeIndex) => {
+      const owner = edgeOwners.get(key);
+      if (!owner) {
+        edgeOwners.set(key, { cellIndex, edgeIndex });
+        return;
+      }
+      cell.neighbors[edgeIndex] = owner.cellIndex;
+      cells[owner.cellIndex].neighbors[owner.edgeIndex] = cellIndex;
+    });
+  });
+  const points = cells.flatMap((cell) => cell.vertices);
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  return {
+    type,
+    cells,
+    minX,
+    minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    ...metadata,
+  };
+}
+
+function createRectangleBoard(columns, rows) {
+  const cells = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const latticeVertices = [
+        { q: column, r: row },
+        { q: column + 1, r: row },
+        { q: column + 1, r: row + 1 },
+        { q: column, r: row + 1 },
+      ];
+      cells.push({
+        column,
+        row,
+        latticeVertices,
+        vertices: latticeVertices.map((vertex) => ({ x: vertex.q, y: vertex.r })),
+        center: { x: column + 0.5, y: row + 0.5 },
+      });
+    }
+  }
+  return finishBoardModel("rectangle", cells, {
+    key: `rectangle:${columns}:${rows}`,
+    columns,
+    rows,
+    rotationCount: 4,
+    rotationAngle: Math.PI / 2,
+  });
+}
+
+function createTriangleHexBoard(side) {
+  const rawCells = [];
+  const insideHexagon = (vertex) => Math.max(Math.abs(vertex.q), Math.abs(vertex.r), Math.abs(vertex.q + vertex.r)) <= side;
+  const point = (vertex) => ({ x: vertex.q + vertex.r / 2, y: vertex.r * TRIANGLE_HEIGHT });
+  const addTriangle = (latticeVertices) => {
+    if (!latticeVertices.every(insideHexagon)) return;
+    const vertices = latticeVertices.map(point);
+    rawCells.push({
+      latticeVertices,
+      vertices,
+      center: {
+        x: vertices.reduce((sum, vertex) => sum + vertex.x, 0) / 3,
+        y: vertices.reduce((sum, vertex) => sum + vertex.y, 0) / 3,
+      },
+    });
+  };
+  for (let q = -side - 1; q <= side; q += 1) {
+    for (let r = -side - 1; r <= side; r += 1) {
+      addTriangle([{ q, r }, { q: q + 1, r }, { q, r: r + 1 }]);
+      addTriangle([{ q: q + 1, r }, { q: q + 1, r: r + 1 }, { q, r: r + 1 }]);
+    }
+  }
+  rawCells.sort((a, b) => a.center.y - b.center.y || a.center.x - b.center.x);
+  rawCells.forEach((cell, index) => { cell.readingPosition = index + 1; });
+  return finishBoardModel("triangleHex", rawCells, {
+    key: `triangleHex:${side}`,
+    side,
+    rotationCount: 6,
+    rotationAngle: Math.PI / 3,
+  });
+}
+
+function currentBoardModel() {
+  const type = boardType();
   const { columns, rows } = dimensions();
-  return columns * rows;
+  const side = Number(elements.hexSide.value);
+  const key = type === "triangleHex" ? `triangleHex:${side}` : `rectangle:${columns}:${rows}`;
+  if (state.board?.key === key) return state.board;
+  state.board = type === "triangleHex" ? createTriangleHexBoard(side) : createRectangleBoard(columns, rows);
+  return state.board;
+}
+
+function boardArea() {
+  return currentBoardModel().cells.length;
+}
+
+function boardDescription() {
+  const board = currentBoardModel();
+  if (board.type === "triangleHex") return `△六角形 · 一辺${board.side} · ${board.cells.length} △`;
+  return `${board.columns} × ${board.rows}`;
+}
+
+function boardFilePart() {
+  const board = currentBoardModel();
+  return board.type === "triangleHex" ? `triangle-hex-${board.side}side` : `${board.columns}x${board.rows}`;
+}
+
+function syncGridControls() {
+  const triangular = boardType() === "triangleHex";
+  elements.rectangleGridControls.hidden = triangular;
+  elements.triangleGridControls.hidden = !triangular;
+  elements.rotationNote.textContent = triangular ? "60°単位でランダム回転" : "90°単位でランダム回転";
+  elements.gridHint.textContent = triangular
+    ? "正三角形を六角形に敷き詰めます。各ミノは辺でつながった同じ△数の形です。"
+    : "盤面を割り切れるセル数だけ選べます。各ミノは辺でつながった同じセル数の形です。";
 }
 
 function minoSize() {
@@ -167,8 +311,10 @@ function boardCharacters() {
 function saveSettings() {
   MotionStorage.write(POLYOMINO_SETTINGS_KEY, {
     text: elements.textInput.value,
+    gridType: elements.gridType.value,
     gridColumns: elements.gridColumns.value,
     gridRows: elements.gridRows.value,
+    hexSide: elements.hexSide.value,
     minoSize: elements.minoSize.value,
     seed: state.seed,
     palette: elements.palette.value,
@@ -195,7 +341,7 @@ function restoreSettings() {
   const settings = MotionStorage.read(POLYOMINO_SETTINGS_KEY);
   if (!settings || typeof settings !== "object") return null;
   if (typeof settings.text === "string") elements.textInput.value = settings.text;
-  ["gridColumns", "gridRows", "palette", "colorOrder", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
+  ["gridType", "gridColumns", "gridRows", "hexSide", "palette", "colorOrder", "fontStyle", "textColor", "backgroundColor", "duration", "moveDuration", "returnOrder", "easing", "previewSpeed", "imageTime", "outputSize"]
     .forEach((name) => { if (elements[name]) MotionStorage.restoreControl(elements[name], settings[name]); });
   if (Number.isFinite(Number(settings.startInterval))) {
     MotionStorage.restoreControl(elements.stagger, settings.startInterval);
@@ -233,24 +379,17 @@ function updateMinoOptions(preferredValue = Number(elements.minoSize.value)) {
   values.forEach((value) => {
     const option = document.createElement("option");
     option.value = String(value);
-    option.textContent = `${value} マス / ${area / value} ミノ`;
+    option.textContent = `${value} セル / ${area / value} ミノ`;
     elements.minoSize.append(option);
   });
   elements.minoSize.value = String(selected);
 }
 
-function neighborIndexes(index, columns, rows) {
-  const column = index % columns;
-  const row = Math.floor(index / columns);
-  const result = [];
-  if (column > 0) result.push(index - 1);
-  if (column + 1 < columns) result.push(index + 1);
-  if (row > 0) result.push(index - columns);
-  if (row + 1 < rows) result.push(index + columns);
-  return result;
+function neighborIndexes(index) {
+  return currentBoardModel().cells[index]?.neighbors.filter((neighbor) => neighbor !== null) || [];
 }
 
-function remainingComponentSizes(remaining, columns, rows) {
+function remainingComponentSizes(remaining) {
   const unseen = new Set(remaining);
   const sizes = [];
   while (unseen.size) {
@@ -261,7 +400,7 @@ function remainingComponentSizes(remaining, columns, rows) {
     while (queue.length) {
       const current = queue.pop();
       size += 1;
-      neighborIndexes(current, columns, rows).forEach((neighbor) => {
+      neighborIndexes(current).forEach((neighbor) => {
         if (!unseen.has(neighbor)) return;
         unseen.delete(neighbor);
         queue.push(neighbor);
@@ -272,19 +411,19 @@ function remainingComponentSizes(remaining, columns, rows) {
   return sizes;
 }
 
-function growConnectedPiece(seed, remaining, size, columns, rows, random) {
+function growConnectedPiece(seed, remaining, size, random) {
   const piece = new Set([seed]);
   while (piece.size < size) {
     const frontier = new Set();
     piece.forEach((cell) => {
-      neighborIndexes(cell, columns, rows).forEach((neighbor) => {
+      neighborIndexes(cell).forEach((neighbor) => {
         if (remaining.has(neighbor) && !piece.has(neighbor)) frontier.add(neighbor);
       });
     });
     if (!frontier.size) return null;
     const candidates = [...frontier].map((cell) => {
-      const openNeighbors = neighborIndexes(cell, columns, rows).filter((neighbor) => remaining.has(neighbor) && !piece.has(neighbor)).length;
-      const touches = neighborIndexes(cell, columns, rows).filter((neighbor) => piece.has(neighbor)).length;
+      const openNeighbors = neighborIndexes(cell).filter((neighbor) => remaining.has(neighbor) && !piece.has(neighbor)).length;
+      const touches = neighborIndexes(cell).filter((neighbor) => piece.has(neighbor)).length;
       return { cell, score: openNeighbors * 0.24 - touches * 0.4 + random() };
     }).sort((a, b) => a.score - b.score);
     const choiceWindow = Math.min(3, candidates.length);
@@ -293,7 +432,8 @@ function growConnectedPiece(seed, remaining, size, columns, rows, random) {
   return [...piece];
 }
 
-function fallbackSnakePartition(columns, rows, size, random) {
+function fallbackSnakePartition(size, random) {
+  const { columns, rows } = currentBoardModel();
   const path = [];
   const vertical = random() < 0.5;
   const flipPrimary = random() < 0.5;
@@ -322,11 +462,54 @@ function fallbackSnakePartition(columns, rows, size, random) {
   return pieces;
 }
 
-function randomPartition(columns, rows, size, random) {
-  const total = columns * rows;
+function hamiltonianPartition(size, random) {
+  const board = currentBoardModel();
+  const total = board.cells.length;
+  const starts = Array.from({ length: total }, (_, index) => index)
+    .sort((a, b) => neighborIndexes(a).length - neighborIndexes(b).length || random() - 0.5);
+  const maximumStarts = Math.min(starts.length, 18);
+  for (let startIndex = 0; startIndex < maximumStarts; startIndex += 1) {
+    const visited = new Uint8Array(total);
+    const path = [starts[startIndex]];
+    visited[starts[startIndex]] = 1;
+    let budget = Math.max(120000, total * 9000);
+    const visit = (cell) => {
+      if (path.length === total) return true;
+      if (budget <= 0) return false;
+      budget -= 1;
+      const candidates = neighborIndexes(cell)
+        .filter((neighbor) => !visited[neighbor])
+        .map((neighbor) => ({
+          neighbor,
+          onward: neighborIndexes(neighbor).filter((next) => !visited[next]).length,
+          jitter: random(),
+        }))
+        .sort((a, b) => a.onward - b.onward || a.jitter - b.jitter);
+      for (const candidate of candidates) {
+        if (candidate.onward === 0 && path.length + 1 < total) continue;
+        visited[candidate.neighbor] = 1;
+        path.push(candidate.neighbor);
+        if (visit(candidate.neighbor)) return true;
+        path.pop();
+        visited[candidate.neighbor] = 0;
+      }
+      return false;
+    };
+    if (visit(starts[startIndex])) {
+      const pieces = [];
+      for (let index = 0; index < path.length; index += size) pieces.push(path.slice(index, index + size));
+      return pieces;
+    }
+  }
+  return null;
+}
+
+function randomPartition(size, random) {
+  const board = currentBoardModel();
+  const total = board.cells.length;
   if (size === 1) return Array.from({ length: total }, (_, index) => [index]);
   if (size === total) return [Array.from({ length: total }, (_, index) => index)];
-  let budget = Math.max(3600, total * 46);
+  let budget = 0;
 
   function solve(remaining, pieces) {
     if (!remaining.size) return pieces;
@@ -335,7 +518,7 @@ function randomPartition(columns, rows, size, random) {
 
     const seeds = [...remaining].map((cell) => ({
       cell,
-      degree: neighborIndexes(cell, columns, rows).filter((neighbor) => remaining.has(neighbor)).length,
+      degree: neighborIndexes(cell).filter((neighbor) => remaining.has(neighbor)).length,
       jitter: random(),
     })).sort((a, b) => a.degree - b.degree || a.jitter - b.jitter);
     const seed = seeds[0].cell;
@@ -343,42 +526,52 @@ function randomPartition(columns, rows, size, random) {
     const attempts = Math.min(72, 20 + size * 3);
     for (let attempt = 0; attempt < attempts && budget > 0; attempt += 1) {
       budget -= 1;
-      const candidate = growConnectedPiece(seed, remaining, size, columns, rows, random);
+      const candidate = growConnectedPiece(seed, remaining, size, random);
       if (!candidate) continue;
       const key = [...candidate].sort((a, b) => a - b).join(",");
       if (seen.has(key)) continue;
       seen.add(key);
       const next = new Set(remaining);
       candidate.forEach((cell) => next.delete(cell));
-      if (remainingComponentSizes(next, columns, rows).some((componentSize) => componentSize % size !== 0)) continue;
+      if (remainingComponentSizes(next).some((componentSize) => componentSize % size !== 0)) continue;
       const solved = solve(next, [...pieces, candidate]);
       if (solved) return solved;
     }
     return null;
   }
 
-  const remaining = new Set(Array.from({ length: total }, (_, index) => index));
-  return solve(remaining, []) || fallbackSnakePartition(columns, rows, size, random);
+  for (let pass = 0; pass < 6; pass += 1) {
+    budget = Math.max(8000, total * 90);
+    const remaining = new Set(Array.from({ length: total }, (_, index) => index));
+    const solved = solve(remaining, []);
+    if (solved) return solved;
+  }
+  if (board.type === "rectangle") return fallbackSnakePartition(size, random);
+  const fallback = hamiltonianPartition(size, random);
+  if (!fallback) throw new Error("The triangular board could not be partitioned into connected pieces");
+  return fallback;
 }
 
-function rotatedShape(piece, quarterTurns) {
-  const { columns } = dimensions();
-  const source = piece.cells.map((cell) => ({ x: cell % columns, y: Math.floor(cell / columns) }));
-  const minX = Math.min(...source.map((cell) => cell.x));
-  const minY = Math.min(...source.map((cell) => cell.y));
-  let cells = source.map((cell) => ({ x: cell.x - minX, y: cell.y - minY }));
-  let width = Math.max(...cells.map((cell) => cell.x)) + 1;
-  let height = Math.max(...cells.map((cell) => cell.y)) + 1;
-  for (let turn = 0; turn < quarterTurns; turn += 1) {
-    cells = cells.map((cell) => ({ x: height - 1 - cell.y, y: cell.x }));
-    [width, height] = [height, width];
-  }
+function rotatedShape(piece, rotationSteps) {
+  const board = currentBoardModel();
+  const center = pieceModelCenter(piece);
+  const angle = rotationSteps * board.rotationAngle;
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  const points = piece.cells.flatMap((cellIndex) => board.cells[cellIndex].vertices).map((point) => {
+    const x = point.x - center.x;
+    const y = point.y - center.y;
+    return { x: x * cosine - y * sine, y: x * sine + y * cosine };
+  });
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
   return {
-    cells,
-    width,
-    height,
-    centerX: cells.reduce((sum, cell) => sum + cell.x + 0.5, 0) / cells.length,
-    centerY: cells.reduce((sum, cell) => sum + cell.y + 0.5, 0) / cells.length,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: -minX,
+    centerY: -minY,
   };
 }
 
@@ -407,21 +600,22 @@ function shelfPack(items, maximumWidth, gap) {
 function buildPlacements(random) {
   const gap = 0.42;
   const majorGap = 0.9;
+  const board = currentBoardModel();
   const items = state.pieces.map((piece) => {
-    const quarterTurns = Math.floor(random() * 4);
-    return { id: piece.id, quarterTurns, shape: rotatedShape(piece, quarterTurns) };
+    const rotationSteps = Math.floor(random() * board.rotationCount);
+    return { id: piece.id, rotationSteps, shape: rotatedShape(piece, rotationSteps) };
   });
   const widest = Math.max(...items.map((item) => item.shape.width));
   const totalWidth = items.reduce((sum, item) => sum + item.shape.width, 0) + gap * Math.max(0, items.length - 1);
-  const { columns, rows } = dimensions();
+  const { width: boardWidth, height: boardHeight } = board;
   let best = null;
   for (let maximumWidth = widest; maximumWidth <= totalWidth + 0.001; maximumWidth += 0.5) {
     const packed = shelfPack(items, maximumWidth, gap);
-    const sideWidth = columns + majorGap + packed.width;
-    const sideHeight = Math.max(rows, packed.height);
+    const sideWidth = boardWidth + majorGap + packed.width;
+    const sideHeight = Math.max(boardHeight, packed.height);
     const sideCellSize = Math.min(elements.canvas.width * 0.88 / sideWidth, elements.canvas.height * 0.8 / sideHeight);
-    const stackWidth = Math.max(columns, packed.width);
-    const stackHeight = rows + majorGap + packed.height;
+    const stackWidth = Math.max(boardWidth, packed.width);
+    const stackHeight = boardHeight + majorGap + packed.height;
     const stackCellSize = Math.min(elements.canvas.width * 0.88 / stackWidth, elements.canvas.height * 0.8 / stackHeight);
     const orientation = sideCellSize >= stackCellSize ? "side" : "stack";
     const cellSize = Math.max(sideCellSize, stackCellSize);
@@ -429,7 +623,7 @@ function buildPlacements(random) {
   }
   state.packing = best;
   state.placements = items.map((item) => ({
-    quarterTurns: item.quarterTurns,
+    rotationSteps: item.rotationSteps,
     shape: item.shape,
     packX: best.positions[item.id].x,
     packY: best.positions[item.id].y,
@@ -438,14 +632,14 @@ function buildPlacements(random) {
 
 function renderFixedPiecePicker() {
   elements.fixedPiecePicker.replaceChildren();
-  const boardColumns = dimensions().columns;
+  const board = currentBoardModel();
   state.pieces.forEach((piece, index) => {
-    const coordinates = piece.cells.map((cell) => ({ column: cell % boardColumns, row: Math.floor(cell / boardColumns) }));
-    const minColumn = Math.min(...coordinates.map((cell) => cell.column));
-    const minRow = Math.min(...coordinates.map((cell) => cell.row));
-    const width = Math.max(...coordinates.map((cell) => cell.column)) - minColumn + 1;
-    const height = Math.max(...coordinates.map((cell) => cell.row)) - minRow + 1;
-    const occupied = new Set(coordinates.map((cell) => `${cell.column - minColumn},${cell.row - minRow}`));
+    const points = piece.cells.flatMap((cell) => board.cells[cell].vertices);
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const padding = 0.08;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "fixed-piece-button";
@@ -457,14 +651,19 @@ function renderFixedPiecePicker() {
     const shape = document.createElement("span");
     shape.className = "fixed-piece-shape";
     shape.style.color = cellColor(piece.readingIndex);
-    shape.style.gridTemplateColumns = `repeat(${width}, 5px)`;
-    for (let row = 0; row < height; row += 1) {
-      for (let column = 0; column < width; column += 1) {
-        const cell = document.createElement("i");
-        cell.classList.toggle("is-empty", !occupied.has(`${column},${row}`));
-        shape.append(cell);
-      }
-    }
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", `${minX - padding} ${minY - padding} ${Math.max(0.1, maxX - minX + padding * 2)} ${Math.max(0.1, maxY - minY + padding * 2)}`);
+    svg.setAttribute("aria-hidden", "true");
+    piece.cells.forEach((cellIndex) => {
+      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      polygon.setAttribute("points", board.cells[cellIndex].vertices.map((point) => `${point.x},${point.y}`).join(" "));
+      polygon.setAttribute("fill", "currentColor");
+      polygon.setAttribute("stroke", "#f7f3eb");
+      polygon.setAttribute("stroke-width", "0.06");
+      polygon.setAttribute("stroke-linejoin", "round");
+      svg.append(polygon);
+    });
+    shape.append(svg);
     button.append(number, shape);
     button.addEventListener("click", () => {
       if (state.fixedPieceIds.has(piece.id)) state.fixedPieceIds.delete(piece.id);
@@ -478,25 +677,24 @@ function renderFixedPiecePicker() {
 }
 
 function sceneLayout() {
-  const { columns, rows } = dimensions();
+  const board = currentBoardModel();
   const packing = state.packing;
   const side = packing.orientation === "side";
-  const totalWidth = side ? columns + packing.majorGap + packing.width : Math.max(columns, packing.width);
-  const totalHeight = side ? Math.max(rows, packing.height) : rows + packing.majorGap + packing.height;
+  const totalWidth = side ? board.width + packing.majorGap + packing.width : Math.max(board.width, packing.width);
+  const totalHeight = side ? Math.max(board.height, packing.height) : board.height + packing.majorGap + packing.height;
   const cellSize = Math.min(elements.canvas.width * 0.965 / totalWidth, elements.canvas.height * 0.945 / totalHeight);
   const originX = (elements.canvas.width - totalWidth * cellSize) / 2;
   const originY = (elements.canvas.height - totalHeight * cellSize) / 2;
-  const boardX = side ? originX : originX + (totalWidth - columns) * cellSize / 2;
-  const boardY = side ? originY + (totalHeight - rows) * cellSize / 2 : originY;
-  const trayX = side ? originX + (columns + packing.majorGap) * cellSize : originX + (totalWidth - packing.width) * cellSize / 2;
-  const trayY = side ? originY + (totalHeight - packing.height) * cellSize / 2 : originY + (rows + packing.majorGap) * cellSize;
+  const boardX = side ? originX : originX + (totalWidth - board.width) * cellSize / 2;
+  const boardY = side ? originY + (totalHeight - board.height) * cellSize / 2 : originY;
+  const trayX = side ? originX + (board.width + packing.majorGap) * cellSize : originX + (totalWidth - packing.width) * cellSize / 2;
+  const trayY = side ? originY + (totalHeight - packing.height) * cellSize / 2 : originY + (board.height + packing.majorGap) * cellSize;
   return {
     board: {
-      columns,
-      rows,
+      model: board,
       cellSize,
-      width: columns * cellSize,
-      height: rows * cellSize,
+      width: board.width * cellSize,
+      height: board.height * cellSize,
       x: boardX,
       y: boardY,
     },
@@ -504,30 +702,39 @@ function sceneLayout() {
   };
 }
 
-function cellPosition(index, layout) {
+function canvasPoint(point, layout) {
   return {
-    column: index % layout.columns,
-    row: Math.floor(index / layout.columns),
-    x: layout.x + index % layout.columns * layout.cellSize,
-    y: layout.y + Math.floor(index / layout.columns) * layout.cellSize,
+    x: layout.x + (point.x - layout.model.minX) * layout.cellSize,
+    y: layout.y + (point.y - layout.model.minY) * layout.cellSize,
+  };
+}
+
+function cellGeometry(index, layout) {
+  const cell = layout.model.cells[index];
+  return {
+    vertices: cell.vertices.map((point) => canvasPoint(point, layout)),
+    center: canvasPoint(cell.center, layout),
+    neighbors: cell.neighbors,
+  };
+}
+
+function pieceModelCenter(piece) {
+  const board = currentBoardModel();
+  return {
+    x: piece.cells.reduce((sum, cell) => sum + board.cells[cell].center.x, 0) / piece.cells.length,
+    y: piece.cells.reduce((sum, cell) => sum + board.cells[cell].center.y, 0) / piece.cells.length,
   };
 }
 
 function pieceCenter(piece, layout) {
-  let x = 0;
-  let y = 0;
-  piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
-    x += position.x + layout.cellSize / 2;
-    y += position.y + layout.cellSize / 2;
-  });
-  return { x: x / piece.cells.length, y: y / piece.cells.length };
+  return canvasPoint(pieceModelCenter(piece), layout);
 }
 
 function rebuildPieces() {
-  const { columns, rows } = dimensions();
-  const random = MotionToolkit.seededRandom(state.seed + columns * 1009 + rows * 917 + minoSize() * 613);
-  const groups = randomPartition(columns, rows, minoSize(), random);
+  const board = currentBoardModel();
+  const boardSalt = board.type === "triangleHex" ? 7001 + board.side * 1879 : board.columns * 1009 + board.rows * 917;
+  const random = MotionToolkit.seededRandom(state.seed + boardSalt + minoSize() * 613);
+  const groups = randomPartition(minoSize(), random);
   const randomOrder = groups.map((_, index) => index);
   for (let index = randomOrder.length - 1; index > 0; index -= 1) {
     const swap = Math.floor(random() * (index + 1));
@@ -548,12 +755,14 @@ function rebuildPieces() {
 // The picker lists the pieces that actually move, labelled by their first cell
 // so a mino can be told apart on the board.
 function syncOrderPicker() {
-  const boardColumns = dimensions().columns;
+  const board = currentBoardModel();
   const moving = state.pieces.filter((piece) => !state.fixedPieceIds.has(piece.id));
   const sorted = [...moving].sort((a, b) => a.readingIndex - b.readingIndex);
   orderPicker.setItems(sorted.map((piece) => ({
     id: piece.id,
-    label: `${piece.readingIndex % boardColumns + 1},${Math.floor(piece.readingIndex / boardColumns) + 1}`,
+    label: board.type === "triangleHex"
+      ? `△${piece.readingIndex + 1}`
+      : `${board.cells[piece.readingIndex].column + 1},${board.cells[piece.readingIndex].row + 1}`,
   })));
   orderPicker.setVisible(elements.returnOrder.value === "specified");
 }
@@ -625,11 +834,10 @@ function mixHexColor(from, to, amount) {
 // a cell belongs.
 function paletteStop(cell, span) {
   if (elements.colorOrder?.value === "gradient") {
-    const { columns, rows } = dimensions();
-    const column = cell % columns;
-    const row = Math.floor(cell / columns);
-    const horizontal = column / Math.max(1, columns - 1);
-    const vertical = row / Math.max(1, rows - 1);
+    const board = currentBoardModel();
+    const center = board.cells[cell].center;
+    const horizontal = (center.x - board.minX) / Math.max(0.001, board.width);
+    const vertical = (center.y - board.minY) / Math.max(0.001, board.height);
     return (horizontal + vertical) / 2 * span;
   }
   return MotionToolkit.seededRandom(state.seed + cell * 7919 + 13)() * span;
@@ -643,47 +851,71 @@ function cellColor(cell) {
   return mixHexColor(colors[start], colors[end], position - start);
 }
 
+function addPolygonToPath(vertices) {
+  if (!vertices.length) return;
+  context.moveTo(vertices[0].x, vertices[0].y);
+  for (let index = 1; index < vertices.length; index += 1) context.lineTo(vertices[index].x, vertices[index].y);
+  context.closePath();
+}
+
 function drawGuide(layout, progress) {
   const visible = elements.showGuide.checked ? 0.28 + progress * 0.06 : progress >= 0.999 ? 0.16 : 0;
   if (visible <= 0) return;
   context.save();
+  context.beginPath();
+  layout.model.cells.forEach((_, index) => addPolygonToPath(cellGeometry(index, layout).vertices));
   context.fillStyle = `rgba(255,255,255,${0.36 + progress * 0.22})`;
-  context.fillRect(layout.x, layout.y, layout.width, layout.height);
+  context.fill();
+
+  const seenEdges = new Set();
+  context.beginPath();
+  layout.model.cells.forEach((cell, cellIndex) => {
+    const geometry = cellGeometry(cellIndex, layout);
+    cell.edgeKeys.forEach((key, edgeIndex) => {
+      if (seenEdges.has(key)) return;
+      seenEdges.add(key);
+      const from = geometry.vertices[edgeIndex];
+      const to = geometry.vertices[(edgeIndex + 1) % geometry.vertices.length];
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+    });
+  });
   context.lineWidth = Math.max(1.25, elements.canvas.width * 1.25 / 1000);
   context.strokeStyle = `rgba(23,33,40,${visible})`;
-  for (let column = 0; column <= layout.columns; column += 1) {
-    const x = layout.x + column * layout.cellSize;
-    context.beginPath();
-    context.moveTo(x, layout.y);
-    context.lineTo(x, layout.y + layout.height);
-    context.stroke();
-  }
-  for (let row = 0; row <= layout.rows; row += 1) {
-    const y = layout.y + row * layout.cellSize;
-    context.beginPath();
-    context.moveTo(layout.x, y);
-    context.lineTo(layout.x + layout.width, y);
-    context.stroke();
-  }
+  context.stroke();
+
+  context.beginPath();
+  layout.model.cells.forEach((cell, cellIndex) => {
+    const geometry = cellGeometry(cellIndex, layout);
+    cell.neighbors.forEach((neighbor, edgeIndex) => {
+      if (neighbor !== null) return;
+      const from = geometry.vertices[edgeIndex];
+      const to = geometry.vertices[(edgeIndex + 1) % geometry.vertices.length];
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+    });
+  });
   context.lineWidth = Math.max(2, elements.canvas.width * 2 / 1000);
+  context.lineJoin = "round";
   context.strokeStyle = `rgba(23,33,40,${Math.min(0.58, visible + 0.16)})`;
-  context.strokeRect(layout.x, layout.y, layout.width, layout.height);
+  context.stroke();
   context.restore();
 }
 
-function drawCellText(character, x, y, cellSize) {
+function drawCellText(character, center, cellSize, triangular) {
   if (!character || /^\s$/u.test(character)) return;
-  let fontSize = cellSize * FONT_SIZE_RATIO;
+  let fontSize = cellSize * (triangular ? TRIANGLE_FONT_SIZE_RATIO : FONT_SIZE_RATIO);
   context.font = `800 ${fontSize}px ${fontFamily()}`;
   const width = context.measureText(character).width;
-  if (width > cellSize * 0.76) {
-    fontSize *= cellSize * 0.76 / width;
+  const maximumWidth = cellSize * (triangular ? 0.42 : 0.76);
+  if (width > maximumWidth) {
+    fontSize *= maximumWidth / width;
     context.font = `800 ${fontSize}px ${fontFamily()}`;
   }
   context.fillStyle = elements.textColor.value;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(character, x + cellSize / 2, y + cellSize / 2 + fontSize * 0.025);
+  context.fillText(character, center.x, center.y + fontSize * 0.025);
 }
 
 function drawPiece(piece, scene, progress, characters) {
@@ -696,8 +928,9 @@ function drawPiece(piece, scene, progress, characters) {
   const startY = scene.tray.y + (placement.packY + placement.shape.centerY) * layout.cellSize;
   const currentX = MotionToolkit.lerp(startX, target.x, amount);
   const currentY = MotionToolkit.lerp(startY, target.y, amount);
-  const signedTurns = [0, 1, 2, -1][placement.quarterTurns];
-  const angle = signedTurns * Math.PI / 2 * (1 - amount);
+  const rotationCount = layout.model.rotationCount;
+  const signedTurns = placement.rotationSteps > rotationCount / 2 ? placement.rotationSteps - rotationCount : placement.rotationSteps;
+  const angle = signedTurns * layout.model.rotationAngle * (1 - amount);
   const cellSet = new Set(piece.cells);
 
   context.save();
@@ -707,8 +940,7 @@ function drawPiece(piece, scene, progress, characters) {
 
   context.beginPath();
   piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
-    context.rect(position.x, position.y, layout.cellSize + 0.25, layout.cellSize + 0.25);
+    addPolygonToPath(cellGeometry(cell, layout).vertices);
   });
   context.shadowColor = `rgba(25,31,34,${0.2 * (1 - Math.min(1, amount)) + 0.06})`;
   context.shadowBlur = layout.cellSize * (0.1 * (1 - Math.min(1, amount)) + 0.02);
@@ -717,9 +949,11 @@ function drawPiece(piece, scene, progress, characters) {
   context.fill();
   context.shadowColor = "transparent";
   piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
+    const geometry = cellGeometry(cell, layout);
+    context.beginPath();
+    addPolygonToPath(geometry.vertices);
     context.fillStyle = cellColor(cell);
-    context.fillRect(position.x, position.y, layout.cellSize + 0.25, layout.cellSize + 0.25);
+    context.fill();
   });
 
   const internalLine = INTERNAL_GRID_WIDTH;
@@ -727,29 +961,27 @@ function drawPiece(piece, scene, progress, characters) {
   context.strokeStyle = "#f7f3eb";
   context.beginPath();
   piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
-    if (cellSet.has(cell + 1) && cell % layout.columns !== layout.columns - 1) {
-      context.moveTo(position.x + layout.cellSize, position.y);
-      context.lineTo(position.x + layout.cellSize, position.y + layout.cellSize);
-    }
-    if (cellSet.has(cell + layout.columns)) {
-      context.moveTo(position.x, position.y + layout.cellSize);
-      context.lineTo(position.x + layout.cellSize, position.y + layout.cellSize);
-    }
+    const geometry = cellGeometry(cell, layout);
+    geometry.neighbors.forEach((neighbor, edgeIndex) => {
+      if (neighbor === null || !cellSet.has(neighbor) || cell > neighbor) return;
+      const from = geometry.vertices[edgeIndex];
+      const to = geometry.vertices[(edgeIndex + 1) % geometry.vertices.length];
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+    });
   });
   context.stroke();
 
   context.beginPath();
   piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
-    const left = position.x;
-    const right = position.x + layout.cellSize;
-    const top = position.y;
-    const bottom = position.y + layout.cellSize;
-    if (!cellSet.has(cell - 1) || cell % layout.columns === 0) { context.moveTo(left, top); context.lineTo(left, bottom); }
-    if (!cellSet.has(cell + 1) || cell % layout.columns === layout.columns - 1) { context.moveTo(right, top); context.lineTo(right, bottom); }
-    if (!cellSet.has(cell - layout.columns)) { context.moveTo(left, top); context.lineTo(right, top); }
-    if (!cellSet.has(cell + layout.columns)) { context.moveTo(left, bottom); context.lineTo(right, bottom); }
+    const geometry = cellGeometry(cell, layout);
+    geometry.neighbors.forEach((neighbor, edgeIndex) => {
+      if (neighbor !== null && cellSet.has(neighbor)) return;
+      const from = geometry.vertices[edgeIndex];
+      const to = geometry.vertices[(edgeIndex + 1) % geometry.vertices.length];
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+    });
   });
   context.lineWidth = Math.max(1.8, layout.cellSize * 0.028);
   context.lineJoin = "round";
@@ -757,8 +989,8 @@ function drawPiece(piece, scene, progress, characters) {
   context.stroke();
 
   piece.cells.forEach((cell) => {
-    const position = cellPosition(cell, layout);
-    drawCellText(characters[cell], position.x, position.y, layout.cellSize);
+    const geometry = cellGeometry(cell, layout);
+    drawCellText(characters[cell], geometry.center, layout.cellSize, layout.model.type === "triangleHex");
   });
   context.restore();
 }
@@ -781,10 +1013,11 @@ function updateLabels(progress = player?.state.playhead || 0) {
   const size = minoSize();
   const pieceCount = area / size;
   const characterCount = boardCharacters().length;
-  elements.gridArea.value = `${area} マス`;
+  const triangular = currentBoardModel().type === "triangleHex";
+  elements.gridArea.value = triangular ? `${area} △` : `${area} マス`;
   elements.characterCount.value = `${Math.min(characterCount, area)} / ${area}`;
   if (characterCount > area) elements.textHint.textContent = `先頭から${area}文字を配置します。残り${characterCount - area}文字は盤面には表示されません。`;
-  else if (characterCount < area) elements.textHint.textContent = `完成すると左上から右へ読めます。残り${area - characterCount}マスは空白になります。`;
+  else if (characterCount < area) elements.textHint.textContent = `完成すると左上から右へ読めます。残り${area - characterCount}セルは空白になります。`;
   else elements.textHint.textContent = "完成すると、左上から右へ正しい順番で読めます。改行は詰めて配置します。";
   const summaryValues = elements.minoSummary.querySelectorAll("b");
   summaryValues[0].textContent = size;
@@ -802,7 +1035,7 @@ function updateLabels(progress = player?.state.playhead || 0) {
   elements.stagger.disabled = elements.returnOrder.value === "simultaneous";
   [elements.textColor, elements.backgroundColor].forEach((control) => { control.nextElementSibling.value = control.value.toUpperCase(); });
   const settled = state.pieces.filter((piece) => pieceLocalProgress(piece, progress) >= 0.999).length;
-  if (settled === state.pieces.length && state.pieces.length) elements.stageStatus.textContent = `完成 · ${dimensions().columns} × ${dimensions().rows} · ${pieceCount} ミノ`;
+  if (settled === state.pieces.length && state.pieces.length) elements.stageStatus.textContent = `完成 · ${boardDescription()} · ${pieceCount} ミノ`;
   else elements.stageStatus.textContent = `${settled} / ${pieceCount} ミノ 確定`;
 }
 
@@ -820,6 +1053,7 @@ function rebuildAndReset() {
 }
 
 const restoredSettings = restoreSettings();
+syncGridControls();
 MotionToolkit.resizeOutputCanvas(elements.canvas, elements.outputSize.value, elements.stageDimensions);
 updateMinoOptions(Number(restoredSettings?.minoSize || 5));
 rebuildPieces();
@@ -840,11 +1074,12 @@ player = MotionToolkit.createPlayer({
   render,
   onUpdate: updateLabels,
   onControlChange: saveSettings,
-  getFileBase: () => `${dimensions().columns}x${dimensions().rows}-${minoSize()}cell-polyomino-type`,
+  getFileBase: () => `${boardFilePart()}-${minoSize()}cell-polyomino-type`,
 });
 
 elements.textInput.addEventListener("input", resetAndRender);
-[elements.gridColumns, elements.gridRows].forEach((control) => control.addEventListener("change", () => {
+[elements.gridType, elements.gridColumns, elements.gridRows, elements.hexSide].forEach((control) => control.addEventListener("change", () => {
+  syncGridControls();
   const previousSize = minoSize();
   updateMinoOptions(previousSize);
   state.seed = Date.now();
