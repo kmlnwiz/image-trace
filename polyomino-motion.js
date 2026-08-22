@@ -243,6 +243,7 @@ function createTriangleHexBoard(side) {
     rawCells.push({
       latticeVertices,
       vertices,
+      readingRow: Math.min(...latticeVertices.map((vertex) => vertex.r)),
       center: {
         x: vertices.reduce((sum, vertex) => sum + vertex.x, 0) / 3,
         y: vertices.reduce((sum, vertex) => sum + vertex.y, 0) / 3,
@@ -255,7 +256,7 @@ function createTriangleHexBoard(side) {
       addTriangle([{ q: q + 1, r }, { q: q + 1, r: r + 1 }, { q, r: r + 1 }]);
     }
   }
-  rawCells.sort((a, b) => a.center.y - b.center.y || a.center.x - b.center.x);
+  rawCells.sort((a, b) => a.readingRow - b.readingRow || a.center.x - b.center.x);
   rawCells.forEach((cell, index) => { cell.readingPosition = index + 1; });
   return finishBoardModel("triangleHex", rawCells, {
     key: `triangleHex:${side}`,
