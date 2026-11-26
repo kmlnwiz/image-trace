@@ -135,6 +135,21 @@
     rehome();
   }
 
+  // Any edit on the page (settings, files, seed, export) blanks the preview window
+  // so a changed picture is never shown before it is played. Transport controls
+  // only move the playhead, and the output format does not touch the picture.
+  const IGNORED_CHANGES = ".transport, #imageTime, #outputFormat, .popout-button";
+  function contentChanged(event) {
+    if (!view) return;
+    // Going back to the start counts as a fresh run, so it blanks like the popup's own ↺.
+    if (event.target.closest?.(IGNORED_CHANGES) && !event.target.closest?.("#restartButton")) return;
+    view.blank();
+  }
+  ["input", "change", "drop"].forEach((type) => document.addEventListener(type, contentChanged, true));
+  document.addEventListener("click", (event) => {
+    if (event.target.closest?.("button")) contentChanged(event);
+  }, true);
+
   window.addEventListener("pagehide", () => {
     try {
       popup?.close();
@@ -150,7 +165,6 @@
   function readPrefs() {
     const stored = MotionStorage.read(PREFS_KEY) || {};
     return {
-      cover: stored.cover === true,
       countdown: COUNTDOWN_CHOICES.includes(stored.countdown) ? stored.countdown : 0,
       barHidden: stored.barHidden === true,
     };
@@ -179,7 +193,6 @@
       button:disabled { opacity: 0.35; cursor: default; }
       .play { background: #E0041D; }
       .play:hover { background: #f01a33; }
-      .cover[aria-pressed="true"] { background: #E0041D; }
       input[type=range] { flex: 1 1 auto; min-width: 80px; accent-color: #E0041D; }
       .time { flex: 0 0 auto; font-variant-numeric: tabular-nums; opacity: 0.85; }
       .spacer { flex: 1 1 auto; }
@@ -201,7 +214,7 @@
     bar.className = "bar";
     const countdownOptions = COUNTDOWN_CHOICES.map((value) => `<option value="${value}">${value ? `${value}秒` : "なし"}</option>`).join("");
     bar.innerHTML = hasTransport
-      ? `<button class="restart" type="button" title="先頭に戻る（Home / R）">↺</button><button class="play" type="button" title="再生 / 一時停止（Space / K）">▶</button><input class="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><span class="time">0:00.0 / 0:00.0</span><button class="cover" type="button" aria-pressed="false" title="再生が始まるまで背景色だけを表示（C）">開始前を隠す</button><label title="再生前のカウントダウン">カウントダウン<select class="countdown">${countdownOptions}</select></label><button class="full" type="button" title="全画面（F）">⛶</button>`
+      ? `<button class="restart" type="button" title="先頭に戻る（Home / R）">↺</button><button class="play" type="button" title="再生 / 一時停止（Space / K）">▶</button><input class="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><span class="time">0:00.0 / 0:00.0</span><label title="再生前のカウントダウン">カウントダウン<select class="countdown">${countdownOptions}</select></label><button class="full" type="button" title="全画面（F）">⛶</button>`
       : `<span class="spacer"></span><button class="full" type="button" title="全画面（F）">⛶</button>`;
     doc.body.append(stage, bar);
 
@@ -210,7 +223,6 @@
       play: bar.querySelector(".play"),
       seek: bar.querySelector(".seek"),
       time: bar.querySelector(".time"),
-      cover: bar.querySelector(".cover"),
       countdown: bar.querySelector(".countdown"),
       full: bar.querySelector(".full"),
     };
@@ -219,14 +231,13 @@
     const view = {
       alive: true,
       playing: false,
-      // While true only the background shows, so the first frame is not seen before playback.
-      covered: hasTransport && prefs.cover,
+      // Nothing but the background shows until playback starts, so a frame is never seen early.
+      covered: hasTransport,
       countdownEnd: 0,
       seeking: false,
       frame: 0,
     };
     if (ui.countdown) ui.countdown.value = String(prefs.countdown);
-    if (ui.cover) ui.cover.setAttribute("aria-pressed", String(prefs.cover));
 
     function savePrefs() {
       MotionStorage.write(PREFS_KEY, prefs);
@@ -392,7 +403,7 @@
       if (!transport.restart || transport.restart.disabled) return;
       view.countdownEnd = 0;
       transport.restart.click();
-      view.covered = prefs.cover;
+      view.covered = true;
     }
 
     function pointer(type) {
@@ -402,8 +413,6 @@
 
     function seekTo(value) {
       if (!transport.timeline || transport.timeline.disabled) return;
-      // Seeking means the frame is wanted on screen.
-      view.covered = false;
       transport.timeline.value = String(MotionToolkit.clamp(Math.round(value), 0, 1000));
       transport.timeline.dispatchEvent(new Event("input", { bubbles: true }));
     }
@@ -414,15 +423,6 @@
       pointer("pointerdown");
       seekTo(Number(transport.timeline.value) + seconds / total * 1000);
       pointer("pointerup");
-    }
-
-    function toggleCover() {
-      if (!hasTransport) return;
-      prefs.cover = !prefs.cover;
-      ui.cover.setAttribute("aria-pressed", String(prefs.cover));
-      view.covered = prefs.cover && !isPlaying();
-      savePrefs();
-      showHint(prefs.cover ? "再生が始まるまで隠します" : "開始前も表示します");
     }
 
     function toggleBar() {
@@ -442,7 +442,6 @@
 
     ui.play?.addEventListener("click", togglePlay);
     ui.restart?.addEventListener("click", restart);
-    ui.cover?.addEventListener("click", toggleCover);
     ui.countdown?.addEventListener("change", () => {
       prefs.countdown = Number(ui.countdown.value);
       savePrefs();
@@ -482,7 +481,6 @@
         k: togglePlay,
         Home: restart,
         r: restart,
-        c: toggleCover,
         h: toggleBar,
         f: toggleFullscreen,
         Escape: cancelCountdown,
@@ -514,6 +512,13 @@
     win.focus();
     syncControls();
     win.requestAnimationFrame(loop);
-    return { draw, stop() { view.alive = false; } };
+    return {
+      draw,
+      stop() { view.alive = false; },
+      // Blank until the next playback; while playing the next sync reveals it again.
+      blank() {
+        if (hasTransport && !isPlaying()) view.covered = true;
+      },
+    };
   }
 })();
