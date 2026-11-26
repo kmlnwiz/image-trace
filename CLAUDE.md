@@ -18,7 +18,7 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 
 ## 全体構成
 
-1ツール = `<name>.html` + `<name>.js`（+ 専用 CSS があるものも）の平置き。共有レイヤーは4つのみ：
+1ツール = `<name>.html` + `<name>.js`（+ 専用 CSS があるものも）の平置き。共有レイヤー：
 
 | ファイル | 役割 |
 | --- | --- |
@@ -29,12 +29,13 @@ python -m http.server 8000   # → http://localhost:8000/index.html
 | `motion-order.js` | `MotionOrder.createOrderPicker`。「指定」順モードのピッカーと順位付け |
 | `motion-pattern.js` | `window.MotionPattern`。背景系5ツールだけが使う。**ループ安全な位相 `loopPhase`**・波形 `wave01` / `frac`、色ヘルパー `hexToRgb` / `mixHex` / `rgbCss` / `paletteAt` / `paletteTable` / `readPalette` / `syncPaletteRows`、格子の空間座標 `gridField`、図形を立体的に見せる `paintEmboss`、粒状ノイズ `paintGrain` |
 | `motion-controls.js` | スライダーの値表示を数値入力へ置き換え（`upgradeNumericFields`）、`.color-control` の hex 表示を自動同期（`syncColorOutputs`） |
+| `motion-popout.js` | ヘッダーの「別ウィンドウ」ボタン。プレビュー canvas（`#previewCanvas` / `#kanjiCanvas` / `#dialCanvas` / `#reelCanvas`）を別ウィンドウへ contain 描画し、余白は `#backgroundColor`（無ければ canvas 左上の色）で埋める。操作は元ページの `#playButton` / `#restartButton` / `#timeline` をクリック・`input` 発火で動かすだけなので、ツール側の対応は不要。別ウィンドウが表示中は元ページの `requestAnimationFrame` を別ウィンドウ側で回す（全画面で元ページが隠れても再生が止まらないように） |
 | `tool-ui.js` | 名前付きプリセットの保存・読込・削除、セクション単位の初期化、`tool-shell-compact` レイアウトの右パネル組み立て |
 | `tool-ui.css` | 共通の画面部品（ヘッダー・ツールスイッチャー・セクション・トランスポート・シークバー・数値入力・順番ピッカー・出力欄） |
 
 `kanji-data.js` は漢字系ツール用の Hanzi Writer Japanese Data 取得・localStorage キャッシュ（最大24文字）。
 
-読み込み順は固定：`motion-storage.js` → `tool-nav.js` → `motion-toolkit.js` →（必要なら `motion-fonts.js` / `motion-order.js` / `motion-pattern.js` / `kanji-data.js`）→ `<tool>.js` → `motion-controls.js` → `tool-ui.js`。**`motion-controls.js` はツール本体の後、`tool-ui.js` は必ず最後。**
+読み込み順は固定：`motion-storage.js` → `tool-nav.js` → `motion-toolkit.js` →（必要なら `motion-fonts.js` / `motion-order.js` / `motion-pattern.js` / `kanji-data.js`）→ `<tool>.js` → `motion-controls.js` → `motion-popout.js` → `tool-ui.js`。**`motion-controls.js` はツール本体の後、`tool-ui.js` は必ず最後。**
 
 ### createPlayer の契約
 
@@ -99,7 +100,7 @@ CSS は `studio-tools.css`（Slice / Flip / Stroke Assemble / Radical / Slide Pu
 2. `tool-ui.js` の `settingsKeys` にエントリを足す。**忘れるとそのページでプリセット UI が一切出ない。**
 3. `tool-nav.js` の `TOOLS` に追加する。忘れると全ページの切替メニューに出てこない。
 4. `index.html` にカードを、`home.css` にそのプレビュー用スタイルを足す。**`home.css` の `order` 一覧にも必ず1行足す。** ホームのグリッドは `order` で並べ替えているので、書き忘れたカードは `order: 0` 扱いになり、最初のカテゴリ見出しより前へ飛び出す。
-5. スクリプトの読み込み順を守る（`motion-controls.js` はツール本体の後、`tool-ui.js` は最後）。
+5. スクリプトの読み込み順を守る（`motion-controls.js` はツール本体の後、`motion-popout.js` はその後、`tool-ui.js` は最後）。
 6. 値表示の `<output>` は、対応するスライダーと同じ `<label for="...">` の中に置く。`motion-controls.js` は `#<id>Value` か `label[for=<id>] output` を探し、そこへ数値入力を差し込む。
 7. 全体時間のスライダーは `max="90"`、背景色の既定は `#FFFFFF`、角丸の既定は `0`。
 8. `README.md` に節を足す。
