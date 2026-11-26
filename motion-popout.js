@@ -144,6 +144,18 @@
   });
 
   // ---- Preview window -----------------------------------------------------
+  const PREFS_KEY = "motion-lab:popout:v1";
+  const COUNTDOWN_CHOICES = [0, 3, 5, 10];
+
+  function readPrefs() {
+    const stored = MotionStorage.read(PREFS_KEY) || {};
+    return {
+      cover: stored.cover === true,
+      countdown: COUNTDOWN_CHOICES.includes(stored.countdown) ? stored.countdown : 0,
+      barHidden: stored.barHidden === true,
+    };
+  }
+
   function buildView(win) {
     const doc = win.document;
     doc.open();
@@ -153,39 +165,80 @@
     const style = doc.createElement("style");
     style.textContent = `
       html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
-      body { font: 12px/1.4 system-ui, sans-serif; color: #fff; user-select: none; }
+      body { display: grid; grid-template-rows: minmax(0, 1fr) auto; font: 12px/1.4 system-ui, sans-serif; color: #fff; user-select: none; }
       body.is-idle, body.is-idle * { cursor: none; }
-      canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
-      .bar { position: fixed; left: 50%; bottom: 20px; width: min(720px, calc(100vw - 32px)); transform: translateX(-50%); box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: rgba(20, 20, 20, 0.78); backdrop-filter: blur(8px); transition: opacity 0.25s; }
-      body.is-idle .bar { opacity: 0; pointer-events: none; }
-      button { width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 6px; color: #fff; font-size: 15px; background: rgba(255, 255, 255, 0.12); cursor: pointer; }
-      button:hover { background: rgba(255, 255, 255, 0.24); }
+      .stage { position: relative; min-height: 0; }
+      canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #161616; border-top: 1px solid #2a2a2a; }
+      body.bar-collapsed .bar { display: none; }
+      button, select { height: 34px; border: 0; border-radius: 6px; color: #fff; font: inherit; background: rgba(255, 255, 255, 0.12); cursor: pointer; }
+      button { min-width: 34px; flex: 0 0 auto; padding: 0 10px; font-size: 13px; }
+      select { padding: 0 6px; }
+      select option { color: #000; }
+      button:hover, select:hover { background: rgba(255, 255, 255, 0.24); }
       button:disabled { opacity: 0.35; cursor: default; }
       .play { background: #E0041D; }
       .play:hover { background: #f01a33; }
-      input[type=range] { flex: 1 1 auto; min-width: 0; accent-color: #E0041D; }
+      .cover[aria-pressed="true"] { background: #E0041D; }
+      input[type=range] { flex: 1 1 auto; min-width: 80px; accent-color: #E0041D; }
       .time { flex: 0 0 auto; font-variant-numeric: tabular-nums; opacity: 0.85; }
       .spacer { flex: 1 1 auto; }
+      label { display: flex; align-items: center; gap: 6px; opacity: 0.9; }
+      .hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); padding: 6px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.8); opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+      .hint.is-visible { opacity: 1; }
     `;
     doc.head.append(style);
 
+    const hasTransport = Boolean(transport.play);
+    const stage = doc.createElement("div");
+    stage.className = "stage";
     const canvas = doc.createElement("canvas");
     const context = canvas.getContext("2d");
+    const hint = doc.createElement("div");
+    hint.className = "hint";
+    stage.append(canvas, hint);
     const bar = doc.createElement("div");
     bar.className = "bar";
-    const hasTransport = Boolean(transport.play);
+    const countdownOptions = COUNTDOWN_CHOICES.map((value) => `<option value="${value}">${value ? `${value}秒` : "なし"}</option>`).join("");
     bar.innerHTML = hasTransport
-      ? `<button class="restart" type="button" title="先頭に戻る（Home）">↺</button><button class="play" type="button" title="再生 / 一時停止（Space）">▶</button><input class="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><span class="time">0:00.0 / 0:00.0</span><button class="full" type="button" title="全画面（F）">⛶</button>`
+      ? `<button class="restart" type="button" title="先頭に戻る（Home / R）">↺</button><button class="play" type="button" title="再生 / 一時停止（Space / K）">▶</button><input class="seek" type="range" min="0" max="1000" step="1" value="0" aria-label="再生位置" /><span class="time">0:00.0 / 0:00.0</span><button class="cover" type="button" aria-pressed="false" title="再生が始まるまで背景色だけを表示（C）">開始前を隠す</button><label title="再生前のカウントダウン">カウントダウン<select class="countdown">${countdownOptions}</select></label><button class="full" type="button" title="全画面（F）">⛶</button>`
       : `<span class="spacer"></span><button class="full" type="button" title="全画面（F）">⛶</button>`;
-    doc.body.append(canvas, bar);
+    doc.body.append(stage, bar);
 
     const ui = {
       restart: bar.querySelector(".restart"),
       play: bar.querySelector(".play"),
       seek: bar.querySelector(".seek"),
       time: bar.querySelector(".time"),
+      cover: bar.querySelector(".cover"),
+      countdown: bar.querySelector(".countdown"),
       full: bar.querySelector(".full"),
     };
+
+    const prefs = readPrefs();
+    const view = {
+      alive: true,
+      playing: false,
+      // While true only the background shows, so the first frame is not seen before playback.
+      covered: hasTransport && prefs.cover,
+      countdownEnd: 0,
+      seeking: false,
+      frame: 0,
+    };
+    if (ui.countdown) ui.countdown.value = String(prefs.countdown);
+    if (ui.cover) ui.cover.setAttribute("aria-pressed", String(prefs.cover));
+
+    function savePrefs() {
+      MotionStorage.write(PREFS_KEY, prefs);
+    }
+
+    let hintTimer = 0;
+    function showHint(message) {
+      hint.textContent = message;
+      hint.classList.add("is-visible");
+      win.clearTimeout(hintTimer);
+      hintTimer = win.setTimeout(() => hint.classList.remove("is-visible"), 1800);
+    }
 
     // Corner sampling is the fallback for tools without a background color input.
     const probe = doc.createElement("canvas");
@@ -193,11 +246,10 @@
     probe.height = 1;
     const probeContext = probe.getContext("2d", { willReadFrequently: true });
     let sampled = "#000000";
-    let frame = 0;
 
     function backgroundColor() {
       if (transport.background?.value) return transport.background.value;
-      if (frame % 30 === 0) {
+      if (view.frame % 30 === 0) {
         try {
           probeContext.clearRect(0, 0, 1, 1);
           probeContext.drawImage(source, 0, 0, 1, 1, 0, 0, 1, 1);
@@ -210,38 +262,93 @@
       return sampled;
     }
 
+    // Picks black or white digits so the countdown reads on any background.
+    function inkFor(fill) {
+      context.fillStyle = fill;
+      const hex = /^#([0-9a-f]{6})$/i.exec(context.fillStyle)?.[1] || "000000";
+      const [r, g, b] = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+      return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#111111" : "#FFFFFF";
+    }
+
     function resize() {
       const ratio = win.devicePixelRatio || 1;
-      const width = Math.max(1, Math.round(win.innerWidth * ratio));
-      const height = Math.max(1, Math.round(win.innerHeight * ratio));
+      const width = Math.max(1, Math.round(stage.clientWidth * ratio));
+      const height = Math.max(1, Math.round(stage.clientHeight * ratio));
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
       }
     }
 
+    function drawCountdown(fill) {
+      const remaining = Math.max(0, view.countdownEnd - win.performance.now());
+      const seconds = Math.ceil(remaining / 1000);
+      const within = (remaining % 1000) / 1000 || 1;
+      const size = Math.min(canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const ink = inkFor(fill);
+      if (!view.covered) {
+        // Keep the paused frame faintly visible behind the numbers.
+        context.globalAlpha = 0.72;
+        context.fillStyle = fill;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalAlpha = 1;
+      }
+      context.lineWidth = size * 0.012;
+      context.strokeStyle = ink;
+      context.globalAlpha = 0.18;
+      context.beginPath();
+      context.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
+      context.stroke();
+      context.globalAlpha = 0.9;
+      context.beginPath();
+      context.arc(cx, cy, size * 0.2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * within);
+      context.stroke();
+      context.globalAlpha = 1;
+      context.fillStyle = ink;
+      context.font = `700 ${Math.round(size * 0.22)}px system-ui, sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(String(seconds), cx, cy + size * 0.01);
+    }
+
     function draw() {
-      frame += 1;
+      view.frame += 1;
       resize();
       const fill = backgroundColor();
       doc.body.style.background = fill;
       context.fillStyle = fill;
       context.fillRect(0, 0, canvas.width, canvas.height);
-      if (!source.width || !source.height) return;
-      const fit = MotionToolkit.containRect(source.width, source.height, canvas.width, canvas.height);
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-      context.drawImage(source, fit.x, fit.y, fit.width, fit.height);
+      if (!view.covered && source.width && source.height) {
+        const fit = MotionToolkit.containRect(source.width, source.height, canvas.width, canvas.height);
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.drawImage(source, fit.x, fit.y, fit.width, fit.height);
+      }
+      if (view.countdownEnd) drawCountdown(fill);
+    }
+
+    function isPlaying() {
+      return transport.play?.textContent.trim() === "Ⅱ";
     }
 
     function syncControls() {
+      view.playing = isPlaying();
+      // Playback started from either window reveals the picture.
+      if (view.playing) {
+        view.covered = false;
+        view.countdownEnd = 0;
+      }
+      // The bar is docked below the picture and folds away while playing, so it never covers it.
+      doc.body.classList.toggle("bar-collapsed", prefs.barHidden || view.playing || Boolean(view.countdownEnd));
       if (!hasTransport) return;
-      ui.play.textContent = transport.play.textContent.trim() === "Ⅱ" ? "Ⅱ" : "▶";
+      ui.play.textContent = view.playing ? "Ⅱ" : "▶";
       ui.play.disabled = transport.play.disabled;
       if (ui.restart) ui.restart.disabled = Boolean(transport.restart?.disabled);
       if (transport.timeline) {
         ui.seek.disabled = transport.timeline.disabled;
-        if (!seeking) ui.seek.value = transport.timeline.value;
+        if (!view.seeking) ui.seek.value = transport.timeline.value;
       } else {
         ui.seek.hidden = true;
       }
@@ -250,25 +357,42 @@
       ui.time.textContent = `${current} / ${total}`;
     }
 
-    let alive = true;
-
     function loop() {
-      if (!alive || win.closed) return;
-      draw();
+      if (!view.alive || win.closed) return;
+      if (view.countdownEnd && win.performance.now() >= view.countdownEnd) {
+        view.countdownEnd = 0;
+        if (!isPlaying() && transport.play && !transport.play.disabled) transport.play.click();
+      }
       syncControls();
+      draw();
       win.requestAnimationFrame(loop);
     }
 
     // ---- Controls: everything goes through the original transport so each
     // tool's own play / seek logic stays the single source of truth.
-    let seeking = false;
+    function cancelCountdown() {
+      if (!view.countdownEnd) return false;
+      view.countdownEnd = 0;
+      showHint("カウントダウンを取り消しました");
+      return true;
+    }
 
     function togglePlay() {
-      if (transport.play && !transport.play.disabled) transport.play.click();
+      if (!transport.play || transport.play.disabled) return;
+      if (cancelCountdown()) return;
+      if (isPlaying() || !prefs.countdown) {
+        transport.play.click();
+        return;
+      }
+      view.countdownEnd = win.performance.now() + prefs.countdown * 1000;
+      hint.classList.remove("is-visible");
     }
 
     function restart() {
-      if (transport.restart && !transport.restart.disabled) transport.restart.click();
+      if (!transport.restart || transport.restart.disabled) return;
+      view.countdownEnd = 0;
+      transport.restart.click();
+      view.covered = prefs.cover;
     }
 
     function pointer(type) {
@@ -278,6 +402,8 @@
 
     function seekTo(value) {
       if (!transport.timeline || transport.timeline.disabled) return;
+      // Seeking means the frame is wanted on screen.
+      view.covered = false;
       transport.timeline.value = String(MotionToolkit.clamp(Math.round(value), 0, 1000));
       transport.timeline.dispatchEvent(new Event("input", { bubbles: true }));
     }
@@ -288,6 +414,21 @@
       pointer("pointerdown");
       seekTo(Number(transport.timeline.value) + seconds / total * 1000);
       pointer("pointerup");
+    }
+
+    function toggleCover() {
+      if (!hasTransport) return;
+      prefs.cover = !prefs.cover;
+      ui.cover.setAttribute("aria-pressed", String(prefs.cover));
+      view.covered = prefs.cover && !isPlaying();
+      savePrefs();
+      showHint(prefs.cover ? "再生が始まるまで隠します" : "開始前も表示します");
+    }
+
+    function toggleBar() {
+      prefs.barHidden = !prefs.barHidden;
+      savePrefs();
+      showHint(prefs.barHidden ? "操作バーを隠しました（H で表示）" : "操作バーを表示しました");
     }
 
     function toggleFullscreen() {
@@ -301,36 +442,55 @@
 
     ui.play?.addEventListener("click", togglePlay);
     ui.restart?.addEventListener("click", restart);
+    ui.cover?.addEventListener("click", toggleCover);
+    ui.countdown?.addEventListener("change", () => {
+      prefs.countdown = Number(ui.countdown.value);
+      savePrefs();
+    });
     ui.full.addEventListener("click", toggleFullscreen);
     ui.seek?.addEventListener("pointerdown", () => {
-      seeking = true;
+      view.seeking = true;
       pointer("pointerdown");
     });
     ui.seek?.addEventListener("input", () => seekTo(Number(ui.seek.value)));
     function endSeek() {
-      if (!seeking) return;
-      seeking = false;
+      if (!view.seeking) return;
+      view.seeking = false;
       pointer("pointerup");
     }
     ui.seek?.addEventListener("pointerup", endSeek);
     ui.seek?.addEventListener("pointercancel", endSeek);
     win.addEventListener("pointerup", endSeek);
-    canvas.addEventListener("click", togglePlay);
-    canvas.addEventListener("dblclick", toggleFullscreen);
+
+    // A double click toggles fullscreen, so a single click waits briefly to be sure it is one.
+    let clickTimer = 0;
+    canvas.addEventListener("click", (event) => {
+      win.clearTimeout(clickTimer);
+      if (event.detail > 1) return;
+      clickTimer = win.setTimeout(togglePlay, 250);
+    });
+    canvas.addEventListener("dblclick", () => {
+      win.clearTimeout(clickTimer);
+      toggleFullscreen();
+    });
 
     win.addEventListener("keydown", (event) => {
       if (event.target === ui.seek && event.key.startsWith("Arrow")) return;
+      if (event.target === ui.countdown) return;
       const handled = {
         " ": togglePlay,
         k: togglePlay,
         Home: restart,
         r: restart,
+        c: toggleCover,
+        h: toggleBar,
         f: toggleFullscreen,
+        Escape: cancelCountdown,
         ArrowLeft: () => seekBy(-1),
         ArrowRight: () => seekBy(1),
       }[event.key.length === 1 ? event.key.toLowerCase() : event.key];
       if (!handled) return;
-      event.preventDefault();
+      if (event.key !== "Escape") event.preventDefault();
       handled();
       wake();
     });
@@ -340,7 +500,7 @@
       doc.body.classList.remove("is-idle");
       win.clearTimeout(idleTimer);
       idleTimer = win.setTimeout(() => {
-        if (!bar.matches(":hover") && !seeking) doc.body.classList.add("is-idle");
+        if (!bar.matches(":hover") && !view.seeking) doc.body.classList.add("is-idle");
       }, IDLE_MS);
     }
     win.addEventListener("pointermove", wake);
@@ -352,7 +512,8 @@
 
     wake();
     win.focus();
+    syncControls();
     win.requestAnimationFrame(loop);
-    return { draw, stop() { alive = false; } };
+    return { draw, stop() { view.alive = false; } };
   }
 })();
