@@ -436,6 +436,25 @@
   cursor: pointer;
 }
 
+.tool-page .popout-button {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  background: white;
+  cursor: pointer;
+}
+
+.tool-page .popout-button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
 .tool-preset-menu > summary::-webkit-details-marker {
   display: none;
 }
